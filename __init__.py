@@ -26,7 +26,6 @@ async def async_setup(hass: HomeAssistant, config: Config):
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up WundaSmart from a config entry."""
-    _LOGGER.info("Setting up wundasmart")
     hass.data.setdefault(DOMAIN, {})
     wunda_ip = entry.data[CONF_HOST]
     wunda_user = 'root'
