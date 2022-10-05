@@ -18,8 +18,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_TEMPERATURE,
     CONF_HOST,
-    CONF_PASSWORD,
-    CONF_USERNAME,
     TEMP_CELSIUS,
 )
 from homeassistant.core import HomeAssistant, callback
@@ -59,8 +57,8 @@ async def async_setup_entry(
 ) -> None:
     """Set up Wundasmart climate."""
     wunda_ip: str = entry.data[CONF_HOST]
-    wunda_user: str = entry.data[CONF_USERNAME]
-    wunda_pass: str = entry.data[CONF_PASSWORD]
+    wunda_user: str = 'root'
+    wunda_pass: str = 'root'
     coordinator: WundasmartDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         Device(

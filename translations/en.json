@@ -12,10 +12,8 @@
             "user": {
                 "data": {
                     "host": "Host",
-                    "password": "Password",
-                    "username": "Username"
                 },
-                "description": "Please enter the IP address, username and password for your Wundasmart controller",
+                "description": "Please enter the IP address for your Wundasmart controller",
                 "title": "Wundasmart configuration"
             }
         }

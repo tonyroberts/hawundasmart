@@ -6,7 +6,7 @@ import logging
 from typing import Final
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, Platform
+from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -29,8 +29,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("Setting up wundasmart")
     hass.data.setdefault(DOMAIN, {})
     wunda_ip = entry.data[CONF_HOST]
-    wunda_user = entry.data[CONF_USERNAME]
-    wunda_pass = entry.data[CONF_PASSWORD]
+    wunda_user = 'root'
+    wunda_pass = 'root'
 
     coordinator = WundasmartDataUpdateCoordinator(
         hass, wunda_ip, wunda_user, wunda_pass

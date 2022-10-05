@@ -2,7 +2,7 @@
 import voluptuous as vol
 
 from homeassistant import config_entries, core, exceptions
-from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
+from homeassistant.const import CONF_HOST
 from homeassistant.helpers import aiohttp_client
 
 from .const import DOMAIN
@@ -11,8 +11,6 @@ from pywundasmart import get_devices
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
-        vol.Required(CONF_USERNAME, default='root'): str,
-        vol.Required(CONF_PASSWORD, default='root'): str,
     }
 )
 
@@ -66,8 +64,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await validate_input(
                 self.hass,
                 user_input[CONF_HOST],
-                user_input[CONF_USERNAME],
-                user_input[CONF_PASSWORD],
             )
         except CannotConnect:
             errors["base"] = "cannot_connect"
