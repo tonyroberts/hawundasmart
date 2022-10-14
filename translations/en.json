@@ -11,7 +11,7 @@
         "step": {
             "user": {
                 "data": {
-                    "host": "Host",
+                    "host": "Host"
                 },
                 "description": "Please enter the IP address for your Wundasmart controller",
                 "title": "Wundasmart configuration"
