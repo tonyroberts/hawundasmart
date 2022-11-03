@@ -6,13 +6,13 @@ import logging
 from typing import Final
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, Platform
+from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DOMAIN
-from pywundasmart import get_devices, get_states
+from pywundasmart import get_devices
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,8 +28,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up WundaSmart from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     wunda_ip = entry.data[CONF_HOST]
-    wunda_user = 'root'
-    wunda_pass = 'root'
+    wunda_user = entry.data[CONF_USERNAME]
+    wunda_pass = entry.data[CONF_PASSWORD]
 
     coordinator = WundasmartDataUpdateCoordinator(
         hass, wunda_ip, wunda_user, wunda_pass
@@ -80,30 +80,22 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=update_interval)
 
     async def _async_update_data(self):
-        if self._devices is None:
-            result = await get_devices(
-                aiohttp_client.async_get_clientsession(self._hass),
-                self._wunda_ip,
-                self._wunda_user,
-                self._wunda_pass,
-            )
-            if result["state"]:
-                self._devices = result["devices"]
-            else:
-                raise UpdateFailed()
 
-        result = await get_states(
+        if self._devices is None:
+            self._devices = []
+
+        result = await get_devices(
             aiohttp_client.async_get_clientsession(self._hass),
             self._wunda_ip,
             self._wunda_user,
             self._wunda_pass,
         )
 
-        for device in self._devices:
-            dev = next(
-                (dev for dev in result if dev["sn"] == device["sn"]),
-                None,
-            )
-            if dev is not None and "state" in dev:
-                device["state"] = dev["state"]
+        if result["state"]:
+            for device in result["devices"]:
+                if "state" in result["devices"][device]:
+                    self._devices.append(result["devices"][device])
+        else:
+            raise UpdateFailed()
+
         return self._devices

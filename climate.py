@@ -18,6 +18,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_TEMPERATURE,
     CONF_HOST,
+    CONF_USERNAME,
+    CONF_PASSWORD,
     TEMP_CELSIUS,
 )
 from homeassistant.core import HomeAssistant, callback
@@ -31,18 +33,16 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-HVAC_MODE_MAP = {
-    0: HVACMode.AUTO,
-    16: HVACMode.HEAT,
-    32: HVACMode.AUTO,
-    48: HVACMode.HEAT,
+HVAC_ACTION_MAP = {
+    "4": HVACAction.IDLE,
+    "5": HVACAction.IDLE,
+    "6": HVACAction.IDLE,
+    "7": HVACAction.HEATING,
 }
 
-HVAC_ACTION_MAP = {
-    0: HVACAction.IDLE,
-    16: HVACAction.IDLE,
-    32: HVACAction.HEATING,
-    48: HVACAction.HEATING,
+HVAC_MODE_MAP = {
+    0: HVACMode.HEAT,
+    1: HVACMode.OFF,
 }
 
 SUPPORTED_HVAC_MODES = [
@@ -57,8 +57,8 @@ async def async_setup_entry(
 ) -> None:
     """Set up Wundasmart climate."""
     wunda_ip: str = entry.data[CONF_HOST]
-    wunda_user: str = 'root'
-    wunda_pass: str = 'root'
+    wunda_user: str = entry.data[CONF_USERNAME]
+    wunda_pass: str = entry.data[CONF_PASSWORD]
     coordinator: WundasmartDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         Device(
@@ -69,7 +69,7 @@ async def async_setup_entry(
             device,
             coordinator,
         )
-        for device in coordinator.data if device["type"] == "ROOM"
+        for device in coordinator.data if device["type"] == "ROOM" and "name" in device
     )
 
 
@@ -94,16 +94,15 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._wunda_ip = wunda_ip
         self._wunda_user = wunda_user
         self._wunda_pass = wunda_pass
-        self._attr_name = device["n"]
-        self._attr_unique_id = device["sn"]
+        self._attr_name = device["name"]
+        self._attr_unique_id = device["id"]
         self._attr_type = device["type"]
-        self._characteristics = device["characteristics"]
         self._attr_device_info = DeviceInfo(
             identifiers={
-                (DOMAIN, device["sn"]),
+                (DOMAIN, device["id"]),
             },
             manufacturer="WundaSmart",
-            name=self.name,
+            name=self.name.replace("%20", " "),
             model=device["type"]
         )
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
@@ -119,21 +118,24 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
             (
                 device
                 for device in self.coordinator.data
-                if device["sn"] == self._attr_unique_id
+                if device["id"] == self._attr_unique_id
             ),
             None,
         )
         if device is not None and "state" in device and device["type"] == "ROOM":
             state = device["state"]
-            if "t" in state:
-                self._attr_current_temperature = state["t"]
+            if "room_temp" in state:
+                self._attr_current_temperature = state["room_temp"]
             if "h" in state:
                 self._attr_current_humidity = state["h"]
             if "sp" in state:
                 self._attr_target_temperature = state["sp"]
-            if "tp" in state:
-                self._attr_hvac_mode = HVAC_MODE_MAP[state["tp"]]
-                self._attr_hvac_action = HVAC_ACTION_MAP[state["tp"]]
+            if "heat" in state:
+                self._attr_hvac_action = HVAC_ACTION_MAP[state["heat"]]
+                if "off" in state:
+                    if state["off"] == 1: self._attr_hvac_action = HVACAction.OFF
+            if "off" in state:
+                self._attr_hvac_mode = HVAC_MODE_MAP[state["off"]]
         super()._handle_coordinator_update()
 
     async def async_added_to_hass(self) -> None:

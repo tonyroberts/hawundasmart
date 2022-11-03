@@ -3,9 +3,11 @@
     "step": {
       "user": {
         "data": {
-          "host": "[%key:common::config_flow::data::host%]"
+          "host": "[%key:common::config_flow::data::host%]",
+          "username": "[%key:common::config_flow::data::username%]",
+          "password": "[%key:common::config_flow::data::password%]"
         },
-        "description": "Please enter the IP address for your Wundasmart controller",
+        "description": "Please enter the IP address, username and password for your Wundasmart controller",
         "title": "Wundasmart configuration"
       }
     },
