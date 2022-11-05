@@ -40,8 +40,10 @@ HVAC_ACTION_MAP = {
     "7": HVACAction.HEATING,
 }
 
-
-PRESET_REDUCED = "reduced"
+HVAC_MODE_MAP = {
+    0: HVACMode.HEAT,
+    1: HVACMode.OFF,
+}
 
 SUPPORTED_HVAC_MODES = [
     HVACMode.AUTO,
@@ -92,7 +94,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._wunda_ip = wunda_ip
         self._wunda_user = wunda_user
         self._wunda_pass = wunda_pass
-        self._attr_name = device["name"]
+        self._attr_name = device["name"].replace("%20", " ")
         self._attr_unique_id = device["id"]
         self._attr_type = device["type"]
         self._attr_device_info = DeviceInfo(
@@ -136,6 +138,10 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                 if state["off"] == 1:
                     self._attr_hvac_mode = HVACMode.OFF
                     self._attr_hvac_action = HVACAction.OFF
+                if "off" in state:
+                    if state["off"] == 1: self._attr_hvac_action = HVACAction.OFF
+            if "off" in state:
+                self._attr_hvac_mode = HVAC_MODE_MAP[state["off"]]
         super()._handle_coordinator_update()
 
     async def async_added_to_hass(self) -> None:
