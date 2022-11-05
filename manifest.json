@@ -1,11 +1,11 @@
 {
-  "domain": "wundasmart",
+  "domain": "hawundasmart",
   "name": "wundasmart",
   "config_flow": true,
   "documentation": "",
   "version": "0.0.1",
   "requirements": [
-    "pywundasmart==0.0.3"
+    "pywundasmart==0.0.4"
   ],
   "ssdp": [],
   "zeroconf": [],
