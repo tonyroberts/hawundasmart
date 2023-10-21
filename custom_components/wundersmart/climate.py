@@ -69,7 +69,7 @@ async def async_setup_entry(
             device,
             coordinator,
         )
-        for device in coordinator.data if device["type"] == "ROOM" and "name" in device
+        for device in coordinator.data.values() if device["type"] == "ROOM" and "name" in device
     )
 
 
@@ -114,14 +114,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        device = next(
-            (
-                device
-                for device in self.coordinator.data
-                if device["id"] == self._attr_unique_id
-            ),
-            None,
-        )
+        device = self.coordinator.data.get(self._attr_unique_id)
         if device is not None and "state" in device and device["type"] == "ROOM":
             state = device["state"]
             if "room_temp" in state:

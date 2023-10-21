@@ -74,7 +74,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
         self._wunda_ip = wunda_ip
         self._wunda_user = wunda_user
         self._wunda_pass = wunda_pass
-        self._devices = []
+        self._devices = {}
 
         update_interval = timedelta(minutes=1)
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=update_interval)
@@ -89,9 +89,14 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
         if result["state"]:
-            for device in result["devices"]:
-                if "state" in result["devices"][device]:
-                    self._devices.append(result["devices"][device])
+            for device in result["devices"].values():
+                device_id = device.get("id")
+                state = device.get("state")
+                if device_id is not None and state is not None:
+                    prev = self._devices.setdefault(device_id, {"id": device_id, "state": {}})
+                    self._devices[device_id] |= device | {
+                        "state": prev["state"] | state
+                    }
         else:
             raise UpdateFailed()
 
