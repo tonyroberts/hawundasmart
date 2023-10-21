@@ -80,7 +80,6 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=update_interval)
 
     async def _async_update_data(self):
-
         result = await get_devices(
             aiohttp_client.async_get_clientsession(self._hass),
             self._wunda_ip,
@@ -89,13 +88,12 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
         if result["state"]:
-            for device in result["devices"].values():
-                device_id = device.get("id")
+            for wunda_id, device in result["devices"].items():
                 state = device.get("state")
-                if device_id is not None and state is not None:
-                    prev = self._devices.setdefault(device_id, {"id": device_id, "state": {}})
-                    self._devices[device_id] |= device | {
-                        "state": prev["state"] | state
+                if state is not None:
+                    prev = self._devices.setdefault(wunda_id, {})
+                    self._devices[wunda_id] |= device | {
+                        "state": prev.get("state", {}) | state
                     }
         else:
             raise UpdateFailed()

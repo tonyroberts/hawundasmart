@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import asyncio
+import aiohttp
 import logging
 from typing import Any
 
-from aiohttp.client import ClientSession
+from aiohttp.client import ClientSession, BasicAuth
 
 from homeassistant.components.climate import (
     ATTR_HVAC_MODE,
@@ -66,11 +68,25 @@ async def async_setup_entry(
             wunda_ip,
             wunda_user,
             wunda_pass,
+            wunda_id,
             device,
             coordinator,
         )
-        for device in coordinator.data.values() if device["type"] == "ROOM" and "name" in device
+        for wunda_id, device in coordinator.data.items() if device["type"] == "ROOM" and "name" in device
     )
+
+
+async def _send_command(session, wunda_ip: str, wunda_user: str, wunda_pass: str, params: dict):
+    wunda_url = f"http://{wunda_ip}/cmd.cgi"
+    params = "&".join((f"{k}={v}" for k, v in params.items()))
+    try:
+        resp = await session.get(wunda_url, auth=BasicAuth(wunda_user, wunda_pass), params=params)
+        status = resp.status
+        if status == 200:
+            return json.loads(await resp.text())
+        raise RuntimeError(f"Failed to send command: {params=}; {status=}")
+    except (asyncio.TimeoutError, aiohttp.ClientError) as exc:
+        raise RuntimeError(f"Failed to send command: {params=}; {status=}", ) from exc
 
 
 class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
@@ -85,6 +101,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         wunda_ip: str,
         wunda_user: str,
         wunda_pass: str,
+        wunda_id: str,
         device: dict[str, Any],
         coordinator: WundasmartDataUpdateCoordinator,
     ) -> None:
@@ -94,6 +111,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._wunda_ip = wunda_ip
         self._wunda_user = wunda_user
         self._wunda_pass = wunda_pass
+        self._wunda_id = wunda_id
         self._attr_name = device["name"].replace("%20", " ")
         self._attr_unique_id = device["id"]
         self._attr_type = device["type"]
@@ -114,7 +132,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        device = self.coordinator.data.get(self._attr_unique_id)
+        device = self.coordinator.data.get(self._wunda_id)
         if device is not None and "state" in device and device["type"] == "ROOM":
             state = device["state"]
             if "room_temp" in state:
@@ -141,3 +159,16 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         """When entity is added to hass."""
         await super().async_added_to_hass()
         self._handle_coordinator_update()
+
+    async def async_set_temperature(self, temperature, **kwargs):
+        # Set the new target temperature
+        await _send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+            "cmd": 1,
+            "roomid": self._wunda_id,
+            "temp": temperature,
+            "locktt": 0,
+            "time": 0
+        })
+
+        # Fetch the updated state
+        await self.coordinator.async_request_refresh()
