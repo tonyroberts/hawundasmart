@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import asyncio
 import logging
 from typing import Final
 
@@ -80,22 +81,31 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=update_interval)
 
     async def _async_update_data(self):
-        result = await get_devices(
-            aiohttp_client.async_get_clientsession(self._hass),
-            self._wunda_ip,
-            self._wunda_user,
-            self._wunda_pass,
-        )
+        attempts = 0
+        while attempts < 3:
+            attempts += 1
 
-        if result["state"]:
-            for wunda_id, device in result["devices"].items():
-                state = device.get("state")
-                if state is not None:
-                    prev = self._devices.setdefault(wunda_id, {})
-                    self._devices[wunda_id] |= device | {
-                        "state": prev.get("state", {}) | state
-                    }
-        else:
-            raise UpdateFailed()
+            result = await get_devices(
+                aiohttp_client.async_get_clientsession(self._hass),
+                self._wunda_ip,
+                self._wunda_user,
+                self._wunda_pass,
+            )
 
-        return self._devices
+            if result["state"]:
+                for wunda_id, device in result["devices"].items():
+                    state = device.get("state")
+                    if state is not None:
+                        prev = self._devices.setdefault(wunda_id, {})
+                        self._devices[wunda_id] |= device | {
+                            "state": prev.get("state", {}) | state
+                        }
+
+                return self._devices
+
+            if attempts < 3:
+                _LOGGER.warning(f"Failed to fetch state information from Wundasmart (will retry): {result=}")
+                await asyncio.sleep(0.1)
+
+        _LOGGER.warning(f"Failed to fetch state information from Wundasmart: {result=}")
+        raise UpdateFailed()
