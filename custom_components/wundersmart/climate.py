@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 import asyncio
 import logging
 from typing import Any
@@ -35,6 +36,7 @@ from .const import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 SUPPORTED_HVAC_MODES = [
+    HVACMode.OFF,
     HVACMode.AUTO,
     HVACMode.HEAT,
 ]
@@ -65,7 +67,7 @@ async def async_setup_entry(
 
 async def _send_command(session, wunda_ip: str, wunda_user: str, wunda_pass: str, params: dict):
     wunda_url = f"http://{wunda_ip}/cmd.cgi"
-    params = "&".join((f"{k}={v}" for k, v in params.items()))
+    params = "&".join((k if v is None else f"{k}={v}"for k, v in params.items()))
 
     attempts = 0
     while attempts < 3:
@@ -182,6 +184,40 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
             "locktt": 0,
             "time": 0
         })
+
+        # Fetch the updated state
+        await self.coordinator.async_request_refresh()
+
+    async def async_set_hvac_mode(self, hvac_mode: HVACMode):
+        if hvac_mode == HVACMode.AUTO:
+            # Set to programmed mode
+            await _send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+                "cmd": 1,
+                "roomid": self._wunda_id,
+                "prog": None,
+                "locktt": 0,
+                "time": 0
+            })
+        elif hvac_mode == HVACMode.HEAT:
+            # Set the target temperature to the current temperature + 1 degree, rounded up
+            await _send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+                "cmd": 1,
+                "roomid": self._wunda_id,
+                "temp": math.ceil(self._attr_current_temperature) + 1,
+                "locktt": 0,
+                "time": 0
+            })
+        elif hvac_mode == HVACMode.OFF:
+            # Set the target temperature to zero
+            await _send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+                "cmd": 1,
+                "roomid": self._wunda_id,
+                "temp": 0.0,
+                "locktt": 0,
+                "time": 0
+            })
+        else:
+            raise NotImplementedError(f"Unsupported HVAC mode {hvac_mode}")
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
