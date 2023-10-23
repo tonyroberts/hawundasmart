@@ -19,6 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: Final[list[Platform]] = [
     Platform.CLIMATE,
+    Platform.WATER_HEATER
 ]
 
 async def async_setup(hass: HomeAssistant, config: Config):
