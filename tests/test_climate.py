@@ -4,6 +4,7 @@ from custom_components.wundersmart.const import DOMAIN
 from unittest.mock import patch
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.core import HomeAssistant
+from homeassistant.components.climate import HVACAction
 
 import json
 
@@ -23,6 +24,8 @@ async def test_climate(hass: HomeAssistant, config):
         assert state
         assert state.attributes["current_temperature"] == 17.8
         assert state.attributes["temperature"] == 0
+        assert state.state == "auto"
+        assert state.attributes["hvac_action"] == HVACAction.OFF
 
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     assert coordinator
@@ -38,6 +41,8 @@ async def test_climate(hass: HomeAssistant, config):
         assert state
         assert state.attributes["current_temperature"] == 16.0
         assert state.attributes["temperature"] == 0
+        assert state.state == "auto"
+        assert state.attributes["hvac_action"] == HVACAction.PREHEATING
 
     # Test setting temperature works
     data = json.loads(load_fixture("test_get_devices3.json"))
@@ -60,3 +65,5 @@ async def test_climate(hass: HomeAssistant, config):
         assert state
         assert state.attributes["current_temperature"] == 16.0
         assert state.attributes["temperature"] == 20
+        assert state.state == "heat"
+        assert state.attributes["hvac_action"] == HVACAction.HEATING
