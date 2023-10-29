@@ -11,9 +11,10 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, Platfor
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from pywundasmart import get_devices
+from .pywundasmart import get_devices
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ PLATFORMS: Final[list[Platform]] = [
     Platform.WATER_HEATER
 ]
 
-async def async_setup(hass: HomeAssistant, config: Config):
+async def async_setup(hass: HomeAssistant, config):
     "Setting up this integration using YAML is not supported."
     return True
 

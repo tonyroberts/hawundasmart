@@ -5,7 +5,6 @@
   "documentation": "",
   "version": "0.0.1",
   "requirements": [
-    "pywundasmart==0.0.5",
     "xmltodict"
   ],
   "ssdp": [],

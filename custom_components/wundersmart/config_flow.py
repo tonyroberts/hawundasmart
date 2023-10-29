@@ -6,7 +6,7 @@ from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD
 from homeassistant.helpers import aiohttp_client
 
 from .const import DOMAIN
-from pywundasmart import get_devices
+from .pywundasmart import get_devices
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
