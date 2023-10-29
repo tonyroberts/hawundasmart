@@ -42,7 +42,7 @@
                 "pic": "3",
                 "prg": "0",
                 "relays": "0",
-                "room_temp": 17.8,
+                "t": 17.8,
                 "settime": "7200",
                 "sp": 0.0,
                 "t_hi": "20.00",
@@ -56,8 +56,7 @@
                 "tp": 4,
                 "zone": "1"
             },
-            "t": 17.8,
-            "type": "ROOM"
+            "device_type": "ROOM"
         }
     }
 }

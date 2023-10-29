@@ -64,7 +64,7 @@ async def async_setup_entry(
             device,
             coordinator,
         )
-        for wunda_id, device in coordinator.data.items() if device["type"] == "wunda" and "device_name" in device
+        for wunda_id, device in coordinator.data.items() if device.get("device_type") == "wunda" and "device_name" in device
     )
 
 
@@ -100,21 +100,21 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         self._wunda_id = wunda_id
         self._attr_name = device["device_name"].replace("%20", " ")
         self._attr_unique_id = device["id"]
-        self._attr_type = device["type"]
+        self._attr_type = device["device_type"]
         self._attr_device_info = DeviceInfo(
             identifiers={
                 (DOMAIN, device["id"]),
             },
             manufacturer="WundaSmart",
             name=self.name.replace("%20", " "),
-            model=device["type"]
+            model=device["device_type"]
         )
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         device = self.coordinator.data.get(self._wunda_id)
-        if device is not None and "state" in device and device["type"] == "wunda":
+        if device is not None and "state" in device and device.get("device_type") == "wunda":
             state = device["state"]
 
             try:

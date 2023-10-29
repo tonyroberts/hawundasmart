@@ -60,7 +60,7 @@ async def async_setup_entry(
             device,
             coordinator,
         )
-        for wunda_id, device in coordinator.data.items() if device["type"] == "ROOM" and "name" in device
+        for wunda_id, device in coordinator.data.items() if device.get("device_type") == "ROOM" and "name" in device
     )
 
 
@@ -89,14 +89,14 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._wunda_id = wunda_id
         self._attr_name = device["name"].replace("%20", " ")
         self._attr_unique_id = device["id"]
-        self._attr_type = device["type"]
+        self._attr_type = device["device_type"]
         self._attr_device_info = DeviceInfo(
             identifiers={
                 (DOMAIN, device["id"]),
             },
             manufacturer="WundaSmart",
             name=self.name.replace("%20", " "),
-            model=device["type"]
+            model=device["device_type"]
         )
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
         self._attr_current_temperature = 0
@@ -108,13 +108,13 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         device = self.coordinator.data.get(self._wunda_id)
-        if device is not None and "state" in device and device["type"] == "ROOM":
+        if device is not None and "state" in device and device.get("device_type") == "ROOM":
             state = device["state"]
-            if state.get("room_temp") is not None:
+            if state.get("t") is not None:
                 try:
-                    self._attr_current_temperature = float(state["room_temp"])
+                    self._attr_current_temperature = float(state["t"])
                 except (ValueError, TypeError):
-                    _LOGGER.warning(f"Unexpected temperature value '{state['room_temp']}' for {self._attr_name}")
+                    _LOGGER.warning(f"Unexpected temperature value '{state['t']}' for {self._attr_name}")
 
             if state.get("h") is not None:
                 try:
