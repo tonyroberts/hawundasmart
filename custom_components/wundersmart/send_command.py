@@ -15,10 +15,10 @@ async def send_command(session: ClientSession, wunda_ip: str, wunda_user: str, w
     while attempts < 3:
         attempts += 1
 
-        resp = await session.get(wunda_url, auth=BasicAuth(wunda_user, wunda_pass), params=params)
-        status = resp.status
-        if status == 200:
-            return json.loads(await resp.text())
+        async with session.get(wunda_url, auth=BasicAuth(wunda_user, wunda_pass), params=params) as resp:
+            status = resp.status
+            if status == 200:
+                return json.loads(await resp.text())
 
         if attempts < 3:
             _LOGGER.warning(f"Failed to send command to Wundasmart (will retry): {status=}")
