@@ -1,11 +1,10 @@
 import asyncio
-import time
 import aiohttp
-import xmltodict
-import hmac
-import hashlib
-import xmltodict
-import base64
+import logging
+import json
+
+_LOGGER = logging.getLogger(__name__)
+
 
 DEVICE_DEFS = {'device_sn', 'prod_sn', 'device_name', 'device_type', 'eth_mac', 'name', 'id', 'i'}
 
@@ -63,77 +62,29 @@ async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, 
     return {"state": True, "devices": devices}
 
 
-async def put_state(httpsession, wunda_ip, wunda_user, wunda_pass, wunda_id, wunda_key, wunda_val):
-    response = {}
-    wunda_url = f"http://{wunda_ip}/setregister.cgi"
-    try:
-        params = f"{wunda_id}@{wunda_key}={wunda_val}"
-        async with httpsession.get(wunda_url, auth=aiohttp.BasicAuth(wunda_user, wunda_pass), params=params) as resp:
+async def send_command(session: aiohttp.ClientSession, 
+                       wunda_ip: str,
+                       wunda_user: str, 
+                       wunda_pass: str,
+                       params: dict,
+                       retries: int = 3,
+                       retry_delay: float = 0.1):
+    """Send a command to the wunda smart hub controller"""
+    wunda_url = f"http://{wunda_ip}/cmd.cgi"
+    params = "&".join((k if v is None else f"{k}={v}"for k, v in params.items()))
+
+    attempts = 0
+    while attempts < retries:
+        attempts += 1
+
+        async with session.get(wunda_url, auth=aiohttp.BasicAuth(wunda_user, wunda_pass), params=params) as resp:
             status = resp.status
             if status == 200:
-                # the setregister.cgi API returns XML formatted response, e.g. <cmd status="ok"><device id="0"><reg vid="121" tid="temp_pre" v="1" status="ok"/></device></cmd>
-                xml_data = await resp.text()
-                xml_dict = xmltodict.parse(xml_data, attr_prefix='')
-                if xml_dict["cmd"]["status"] == "ok":
-                    if xml_dict["cmd"]["device"]["reg"]["status"] == "ok":
-                        response[xml_dict["cmd"]["device"]["reg"]["tid"]] = xml_dict["cmd"]["device"]["reg"]["v"]
-                    else:
-                        return {"state": False, "code": 500, "message": xml_dict["cmd"]["device"]["reg"]["status"]}
-                else:
-                    return {"state": False, "code": 500, "message": xml_dict["cmd"]["status"]}
-            else:
-                return {"state": False, "code": status}
-    except (asyncio.TimeoutError, aiohttp.ClientError):
-        return {"state": False, "code": 500, "message": "HTTP client error"}
+                return json.loads(await resp.text())
 
-    return {"state": True, "response": response}
+        if attempts < retries:
+            _LOGGER.warning(f"Failed to send command to Wundasmart (will retry): {status=}")
+            await asyncio.sleep(retry_delay)
 
-
-async def get_credentials(wunda_user, wunda_pass):
-    response = {}
-    wunda_session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=True))
-    curtime = str(round(time.time())+3600)
-    salt = "43785hf284hdf3"
-    key = salt+wunda_pass
-    keyHmacSha512 = hmac.new(hashlib.sha512(str(key).encode()).digest(), curtime.encode(), hashlib.sha512).hexdigest()
-    url = "https://wunda.azurewebsites.net/api/1.1/?login"
-    formdata = aiohttp.FormData( {'user': wunda_user, 'hash': keyHmacSha512, 'time': curtime} )
-    resp = await wunda_session.post(url, data=formdata)
-    status = resp.status
-    if status == 200:
-        if resp.headers["api-status"] == 'ok':
-            resp = await wunda_session.post("https://wunda.azurewebsites.net/api/1.1/?devicelist")
-            if status == 200:
-                if resp.headers["api-status"] == 'ok':
-                    xml_data = await resp.text()
-                    xml_dict = xmltodict.parse(xml_data, attr_prefix='')
-                    device_id = xml_dict["api"]["response"]["device"]["id"]
-                    resp = await wunda_session.post("https://wunda.azurewebsites.net/api/1.1/?id=5056&query=getregister.cgi?0%40auth_root%260%40eth_ip_ro")
-                    if status == 200:
-                        if resp.headers["api-status"] == 'ok':
-                            xml_data = await resp.text()
-                            xml_dict = xmltodict.parse(xml_data, attr_prefix='')
-                            for tid in xml_dict["cmd"]["device"]["reg"]:
-                                response[tid["tid"]] = tid["v"]
-                            (local_user,local_pass) = str(base64.b64decode(response["auth_root"])).split(":")
-                            local_pass = local_pass[:-1]
-                            local_user = local_user[2:]
-                        else:
-                            return {"state": False, "code": 500, "message": resp.headers["api-status-msg"]}
-                    else:
-                        return {"state": False, "code": status}
-                else:
-                    return {"state": False, "code": 500, "message": resp.headers["api-status-msg"]}
-            else:
-                return {"state": False, "code": status}
-        else:
-            return {"state": False, "code": 500, "message": resp.headers["api-status-msg"]}
-    else:
-        return {"state": False, "code": status}
-
-    await wunda_session.close()
-
-    response["user"] = local_user
-    response["pass"] = local_pass
-
-    return response
+    _LOGGER.warning(f"Failed to send command to Wundasmart : {status=}")
+    raise RuntimeError(f"Failed to send command: {params=}; {status=}")

@@ -25,7 +25,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import WundasmartDataUpdateCoordinator
-from .send_command import send_command
+from .pywundasmart import send_command
 from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
