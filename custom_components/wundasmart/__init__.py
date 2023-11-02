@@ -88,7 +88,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
             attempts += 1
 
             result = await get_devices(
-                aiohttp_client.async_get_clientsession(self._hass),
+                aiohttp_client.async_create_clientsession(self._hass),
                 self._wunda_ip,
                 self._wunda_user,
                 self._wunda_pass,

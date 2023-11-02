@@ -4,8 +4,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from aiohttp.client import ClientSession
-
 from homeassistant.components.water_heater import (
     WaterHeaterEntity,
     WaterHeaterEntityFeature,
@@ -56,7 +54,7 @@ async def async_setup_entry(
     coordinator: WundasmartDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         Device(
-            aiohttp_client.async_get_clientsession(hass),
+            hass,
             wunda_ip,
             wunda_user,
             wunda_pass,
@@ -83,7 +81,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
 
     def __init__(
         self,
-        session: ClientSession,
+        hass: HomeAssistant,
         wunda_ip: str,
         wunda_user: str,
         wunda_pass: str,
@@ -93,7 +91,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
     ) -> None:
         """Initialize the Wundasmart water_heater."""
         super().__init__(coordinator)
-        self._session = session
+        self._hass = hass
         self._wunda_ip = wunda_ip
         self._wunda_user = wunda_user
         self._wunda_pass = wunda_pass
@@ -146,17 +144,20 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
 
     async def async_set_operation_mode(self, operation_mode: str) -> None:
         if operation_mode == OPERATION_BOOST_OFF:
-            await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+            session = aiohttp_client.async_create_clientsession(self._hass)
+            await send_command(session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
                 "cmd": 3,
                 "hw_off_time": HW_OFF_TIME
             })
         elif operation_mode == OPERATION_BOOST_ON:
-            await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+            session = aiohttp_client.async_create_clientsession(self._hass)
+            await send_command(session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
                 "cmd": 3,
                 "hw_boost_time": HW_BOOST_TIME
             })
         elif operation_mode == OPERATION_SET_AUTO:
-            await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+            session = aiohttp_client.async_create_clientsession(self._hass)
+            await send_command(session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
                 "cmd": 3,
                 "hw_boost_time": 0
             })
