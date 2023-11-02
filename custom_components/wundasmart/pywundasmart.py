@@ -9,7 +9,7 @@ _LOGGER = logging.getLogger(__name__)
 DEVICE_DEFS = {'device_sn', 'prod_sn', 'device_name', 'device_type', 'eth_mac', 'name', 'id', 'i'}
 
 
-async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, wunda_pass):
+async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, wunda_pass, timeout=10):
     """ Returns a list of active devices connected to the Wundasmart controller """
 
     devices = {}
@@ -17,7 +17,7 @@ async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, 
     # Query the cmd API, which returns a list of rooms configured on the controller. Data is formatted in JSON
     wunda_url = f"http://{wunda_ip}/cmd.cgi"
     try:
-        async with httpsession.get(wunda_url, auth=aiohttp.BasicAuth(wunda_user, wunda_pass)) as resp:
+        async with httpsession.get(wunda_url, auth=aiohttp.BasicAuth(wunda_user, wunda_pass), timeout=timeout) as resp:
             status = resp.status
 
             if status == 200:
@@ -38,7 +38,7 @@ async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, 
     # Query the syncvalues API, which returns a list of all sensor values for all devices. Data is formatted as semicolon-separated k;v pairs
     wunda_url = f"http://{wunda_ip}/syncvalues.cgi?v=2"
     try:
-        async with httpsession.get(wunda_url, auth=aiohttp.BasicAuth(wunda_user, wunda_pass)) as resp:
+        async with httpsession.get(wunda_url, auth=aiohttp.BasicAuth(wunda_user, wunda_pass), timeout=timeout) as resp:
             status = resp.status
             if status == 200:
                 data = await resp.text()
@@ -71,6 +71,7 @@ async def send_command(session: aiohttp.ClientSession,
                        wunda_user: str, 
                        wunda_pass: str,
                        params: dict,
+                       timeout: int = 10,
                        retries: int = 3,
                        retry_delay: float = 0.1):
     """Send a command to the wunda smart hub controller"""
@@ -81,7 +82,7 @@ async def send_command(session: aiohttp.ClientSession,
     while attempts < retries:
         attempts += 1
 
-        async with session.get(wunda_url, auth=aiohttp.BasicAuth(wunda_user, wunda_pass), params=params) as resp:
+        async with session.get(wunda_url, auth=aiohttp.BasicAuth(wunda_user, wunda_pass), params=params, timeout=timeout) as resp:
             status = resp.status
             if status == 200:
                 return json.loads(await resp.text())
