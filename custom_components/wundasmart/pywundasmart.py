@@ -71,9 +71,9 @@ async def send_command(session: aiohttp.ClientSession,
                        wunda_user: str, 
                        wunda_pass: str,
                        params: dict,
-                       timeout: int = 10,
-                       retries: int = 3,
-                       retry_delay: float = 0.1):
+                       timeout: int = 5,
+                       retries: int = 10,
+                       retry_delay: float = 5):
     """Send a command to the wunda smart hub controller"""
     wunda_url = f"http://{wunda_ip}/cmd.cgi"
     params = "&".join((k if v is None else f"{k}={v}"for k, v in params.items()))

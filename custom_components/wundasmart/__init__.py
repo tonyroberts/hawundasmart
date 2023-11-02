@@ -84,7 +84,8 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         attempts = 0
-        while attempts < 3:
+        max_attempts = 10
+        while attempts < max_attempts:
             attempts += 1
 
             result = await get_devices(
@@ -92,6 +93,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
                 self._wunda_ip,
                 self._wunda_user,
                 self._wunda_pass,
+                timeout=5
             )
 
             if result["state"]:
@@ -105,9 +107,9 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
 
                 return self._devices
 
-            if attempts < 3:
+            if attempts < max_attempts:
                 _LOGGER.warning(f"Failed to fetch state information from Wundasmart (will retry): {result=}")
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(5)
 
         _LOGGER.warning(f"Failed to fetch state information from Wundasmart: {result=}")
         raise UpdateFailed()
