@@ -29,8 +29,10 @@ async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, 
                     device.update({k: v for k, v in room.items() if k in DEVICE_DEFS})
                     state.update({k: v for k, v in room.items() if k not in DEVICE_DEFS})
             else:
+                _LOGGER.warning(f"Error getting cmd.cgi: {resp}")
                 return {"state": False, "code": status}
     except (asyncio.TimeoutError, aiohttp.ClientError):
+        _LOGGER.warning("Error getting cmd.cgi", exc_info=True)
         return {"state": False, "code": 500}
 
     # Query the syncvalues API, which returns a list of all sensor values for all devices. Data is formatted as semicolon-separated k;v pairs
@@ -50,8 +52,10 @@ async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, 
                     device.update({k: v for k, v in device_values.items() if k in DEVICE_DEFS})
                     state.update({k: v for k, v in device_values.items() if k not in DEVICE_DEFS})
             else:
+                _LOGGER.warning(f"Error getting syncvalues.cgi: {resp}")
                 return {"state": False, "code": status}
     except (asyncio.TimeoutError, aiohttp.ClientError):
+        _LOGGER.warning("Error getting syncvalues.cgi", exc_info=True)
         return {"state": False, "code": 500, "message": "HTTP client error"}
 
     # Give each device a unique id based on wunda id and device type
