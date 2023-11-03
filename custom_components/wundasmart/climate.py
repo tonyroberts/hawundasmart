@@ -50,8 +50,12 @@ async def async_setup_entry(
     wunda_user: str = entry.data[CONF_USERNAME]
     wunda_pass: str = entry.data[CONF_PASSWORD]
     coordinator: WundasmartDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
-        Device(
+    rooms = (
+        (wunda_id, device) for wunda_id, device
+        in coordinator.data.items()
+        if device.get("device_type") == "ROOM" and "name" in device
+    )
+    async_add_entities((Device(
             hass,
             wunda_ip,
             wunda_user,
@@ -60,8 +64,7 @@ async def async_setup_entry(
             device,
             coordinator,
         )
-        for wunda_id, device in coordinator.data.items() if device.get("device_type") == "ROOM" and "name" in device
-    )
+        for wunda_id, device in rooms))
 
 
 class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
@@ -107,44 +110,44 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        device = self.coordinator.data.get(self._wunda_id)
-        if device is not None and "state" in device and device.get("device_type") == "ROOM":
-            state = device["state"]
-            if state.get("t") is not None:
-                try:
-                    self._attr_current_temperature = float(state["t"])
-                except (ValueError, TypeError):
-                    _LOGGER.warning(f"Unexpected temperature value '{state['t']}' for {self._attr_name}")
+        device = self.coordinator.data.get(self._wunda_id, {})
+        state = device.get("state", {})
+        sensor_state = device.get("sensor_state", {})
+        if sensor_state.get("temp") is not None:
+            try:
+                self._attr_current_temperature = float(sensor_state["temp"])
+            except (ValueError, TypeError):
+                _LOGGER.warning(f"Unexpected temperature value '{sensor_state['temp']}' for {self._attr_name}")
 
-            if state.get("h") is not None:
-                try:
-                    self._attr_current_humidity = float(state["h"])
-                except (ValueError, TypeError):
-                    _LOGGER.warning(f"Unexpected humidity value '{state['h']}' for {self._attr_name}")
+        if sensor_state.get("rh") is not None:
+            try:
+                self._attr_current_humidity = float(sensor_state["rh"])
+            except (ValueError, TypeError):
+                _LOGGER.warning(f"Unexpected humidity value '{sensor_state['rh']}' for {self._attr_name}")
 
-            if state.get("sp") is not None:
-                try:
-                    self._attr_target_temperature = float(state["sp"])
-                except (ValueError, TypeError):
-                    _LOGGER.warning(f"Unexpected set point value '{state['sp']}' for {self._attr_name}")
+        if state.get("temp") is not None:
+            try:
+                self._attr_target_temperature = float(state["temp"])
+            except (ValueError, TypeError):
+                _LOGGER.warning(f"Unexpected set temp value '{state['temp']}' for {self._attr_name}")
 
-            if state.get("tp") is not None:
-                try:
-                    # tp appears to be the following flags:
-                    # - 00000001 (0x01) indicates a manual override is set until the next manual override
-                    # - 00000100 (0x04) indicates the set point temperature has been set to 'off'
-                    # - 00010000 (0x10) indicates a manual override has been set
-                    # - 00100000 (0x20) indicates heating demand
-                    # - 10000000 (0x80) indicates the adaptive start mode is active
-                    flags = int(state["tp"])
-                    self._attr_hvac_mode = HVACMode.HEAT if (flags & (0x10 | 0x80)) == 0x10 else HVACMode.AUTO
-                    self._attr_hvac_action = (
-                        HVACAction.PREHEATING if ((flags & (0x80 | 0x20)) == (0x80 | 0x20))
-                        else HVACAction.HEATING if flags & 0x20 
-                        else HVACAction.OFF
-                    )
-                except (ValueError, TypeError):
-                    _LOGGER.warning(f"Unexpected 'tp' value '{state['tp']}' for {self._attr_name}")
+        if state.get("temp_pre") is not None:
+            try:
+                # tp appears to be the following flags:
+                # - 00000001 (0x01) indicates a manual override is set until the next manual override
+                # - 00000100 (0x04) indicates the set point temperature has been set to 'off'
+                # - 00010000 (0x10) indicates a manual override has been set
+                # - 00100000 (0x20) indicates heating demand
+                # - 10000000 (0x80) indicates the adaptive start mode is active
+                flags = int(state["temp_pre"])
+                self._attr_hvac_mode = HVACMode.HEAT if (flags & (0x10 | 0x80)) == 0x10 else HVACMode.AUTO
+                self._attr_hvac_action = (
+                    HVACAction.PREHEATING if ((flags & (0x80 | 0x20)) == (0x80 | 0x20))
+                    else HVACAction.HEATING if flags & 0x20 
+                    else HVACAction.OFF
+                )
+            except (ValueError, TypeError):
+                _LOGGER.warning(f"Unexpected 'temp_pre' value '{state['temp_pre']}' for {self._attr_name}")
 
         super()._handle_coordinator_update()
 

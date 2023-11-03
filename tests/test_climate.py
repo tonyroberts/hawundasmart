@@ -47,8 +47,20 @@ async def test_climate(hass: HomeAssistant, config):
     # Test setting temperature works
     data = json.loads(load_fixture("test_get_devices3.json"))
     tdata = json.loads(load_fixture("test_set_temperature.json"))
-    with patch("custom_components.wundasmart.get_devices", return_value=data), \
-            patch("custom_components.wundasmart.climate.send_command", return_value=tdata) as mock:
+    with patch("custom_components.wundasmart.get_devices", side_effect=[data, tdata]), \
+            patch("custom_components.wundasmart.climate.send_command", return_value=None) as mock:
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+        # Check the state before setting the temperature
+        state = hass.states.get("climate.test_room")
+        assert state
+        assert state.attributes["current_temperature"] == 16.0
+        assert state.attributes["temperature"] == 20
+        assert state.state == "auto"
+        assert state.attributes["hvac_action"] == HVACAction.OFF
+
+        # set the temperature
         await hass.services.async_call("climate", "set_temperature", {
             "entity_id": "climate.test_room",
             "temperature": 20

@@ -98,19 +98,28 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
             if result["state"]:
-                for wunda_id, device in result["devices"].items():
-                    state = device.get("state")
-                    if state is not None:
-                        prev = self._devices.setdefault(wunda_id, {})
-                        self._devices[wunda_id] |= device | {
-                            "state": prev.get("state", {}) | state
-                        }
-
-                return self._devices
+                break
 
             if attempts < max_attempts:
                 _LOGGER.warning(f"Failed to fetch state information from Wundasmart (will retry): {result=}")
                 await asyncio.sleep(1)
+        else:
+            _LOGGER.warning(f"Failed to fetch state information from Wundasmart: {result=}")
+            raise UpdateFailed()
 
-        _LOGGER.warning(f"Failed to fetch state information from Wundasmart: {result=}")
-        raise UpdateFailed()
+        for wunda_id, device in result["devices"].items():
+            state = device.get("state")
+            if state is not None:
+                prev = self._devices.setdefault(wunda_id, {})
+                self._devices[wunda_id] |= device | {
+                    "state": prev.get("state", {}) | state
+                }
+
+            sensor_state = device.get("sensor_state")
+            if sensor_state is not None:
+                prev = self._devices.setdefault(wunda_id, {})
+                self._devices[wunda_id] |= device | {
+                    "sensor_state": prev.get("sensor_state", {}) | sensor_state
+                }
+
+        return self._devices
