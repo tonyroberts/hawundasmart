@@ -37,10 +37,16 @@ async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, 
             status = resp.status
             if status == 200:
                 data = await resp.text()
+                device_sn = None
                 for device_state in data.splitlines():
                     device_values = dict(x.split(":") for x in device_state.split(";") if ":" in x)
                     device_id = int(device_state.split(";")[0])
                     device_type = _device_type_from_id(device_id)
+
+                    # This is set once for the first item and is the hub switch serial number
+                    device_sn = device_sn or device_values.get("device_sn")
+                    if device_sn is None:
+                        raise RuntimeError("No device_sn found")
 
                     device = devices.setdefault(device_id, {"device_type": device_type})
                     state = device.setdefault("state", {})
@@ -48,8 +54,8 @@ async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, 
                     device.update({k: v for k, v in device_values.items() if k in DEVICE_DEFS})
                     state.update({k: v for k, v in device_values.items() if k not in DEVICE_DEFS})
 
-                    # Give each device a unique id based on wunda id and device type
-                    device["id"] = f"{device_type}.{device_id}"
+                    # Give each device a unique id based on the hub switch serial number and device id
+                    device["id"] = f"wunda.{device_sn}.{device_id}"
 
                     # Add the sensor values to the rooms
                     if device_type == "ROOM":
