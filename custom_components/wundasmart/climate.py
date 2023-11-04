@@ -92,14 +92,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._attr_name = device["name"].replace("%20", " ")
         self._attr_unique_id = device["id"]
         self._attr_type = device["device_type"]
-        self._attr_device_info = DeviceInfo(
-            identifiers={
-                (DOMAIN, device["id"]),
-            },
-            manufacturer="WundaSmart",
-            name=self.name.replace("%20", " "),
-            model=device["device_type"]
-        )
+        self._attr_device_info = coordinator.device_info
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
         self._attr_current_temperature = 0
         self._attr_target_temperature = 0

@@ -100,14 +100,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         self._attr_name = device["device_name"].replace("%20", " ")
         self._attr_unique_id = device["id"]
         self._attr_type = device["device_type"]
-        self._attr_device_info = DeviceInfo(
-            identifiers={
-                (DOMAIN, device["id"]),
-            },
-            manufacturer="WundaSmart",
-            name=self.name.replace("%20", " "),
-            model=device["device_type"]
-        )
+        self._attr_device_info = coordinator.device_info
 
     @callback
     def _handle_coordinator_update(self) -> None:

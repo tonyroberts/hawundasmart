@@ -11,7 +11,7 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, Platfor
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import DOMAIN
 from .pywundasmart import get_devices
@@ -78,6 +78,10 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
         self._wunda_user = wunda_user
         self._wunda_pass = wunda_pass
         self._devices = {}
+        self._device_sn = None
+        self._device_name = None
+        self._sw_version = None
+        self._hw_version = None
 
         update_interval = timedelta(minutes=1)
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=update_interval)
@@ -122,4 +126,24 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
                     "sensor_state": prev.get("sensor_state", {}) | sensor_state
                 }
 
+            # Get the hub switch serial number if we don't have it already
+            if self._device_sn is None and "device_sn" in device:
+                self._device_sn = device["device_sn"]
+                self._device_name = device.get("name", "Smart HubSwitch").replace("%20", " ")
+                self._sw_version = device.get("device_soft_version", "unknown")
+                self._hw_version = device.get("device_hard_version", "unknown")
+
         return self._devices
+
+    @property
+    def device_info(self) -> DeviceInfo | None:
+        if self._device_sn is None:
+            return None
+
+        return DeviceInfo(
+            identifiers={(DOMAIN, self._device_sn)},
+            manufacturer="Wunda",
+            name=self._device_name or "Smart HubSwitch",
+            hw_version=self._hw_version,
+            sw_version=self._sw_version
+        )
