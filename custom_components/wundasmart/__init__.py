@@ -20,12 +20,15 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: Final[list[Platform]] = [
     Platform.CLIMATE,
-    Platform.WATER_HEATER
+    Platform.WATER_HEATER,
+    Platform.SENSOR
 ]
+
 
 async def async_setup(hass: HomeAssistant, config):
     "Setting up this integration using YAML is not supported."
     return True
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up WundaSmart from a config entry."""
@@ -134,6 +137,10 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
                 self._hw_version = device.get("device_hard_version", "unknown")
 
         return self._devices
+
+    @property
+    def device_sn(self):
+        return self._device_sn
 
     @property
     def device_info(self) -> DeviceInfo | None:

@@ -99,9 +99,10 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._attr_current_humidity = 0
         self._attr_hvac_mode = HVACMode.AUTO
 
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
+        # Update with initial state
+        self.__update_state()
+
+    def __update_state(self):
         device = self.coordinator.data.get(self._wunda_id, {})
         state = device.get("state", {})
         sensor_state = device.get("sensor_state", {})
@@ -141,6 +142,10 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
             except (ValueError, TypeError):
                 _LOGGER.warning(f"Unexpected 'temp_pre' value '{state['temp_pre']}' for {self._attr_name}")
 
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self.__update_state()
         super()._handle_coordinator_update()
 
     async def async_added_to_hass(self) -> None:

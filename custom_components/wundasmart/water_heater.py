@@ -102,9 +102,10 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         self._attr_type = device["device_type"]
         self._attr_device_info = coordinator.device_info
 
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
+        # Update with initial state
+        self.__update_state()
+
+    def __update_state(self):
         device = self.coordinator.data.get(self._wunda_id)
         if device is not None and "state" in device and device.get("device_type") == "wunda":
             state = device["state"]
@@ -129,6 +130,10 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
             else:
                 self._attr_current_operation = STATE_BOOST_OFF if hw_boost_state else STATE_AUTO_OFF
 
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self.__update_state()
         super()._handle_coordinator_update()
 
     async def async_added_to_hass(self) -> None:
