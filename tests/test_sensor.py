@@ -27,6 +27,10 @@ async def test_sensors(hass: HomeAssistant, config):
         assert rh_state
         assert rh_state.state == "66.57"
 
+        trv_battery_state = hass.states.get("sensor.test_room_trv_0_battery_level")        
+        assert trv_battery_state
+        assert trv_battery_state.state == "100"
+
 
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     assert coordinator

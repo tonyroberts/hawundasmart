@@ -18,10 +18,10 @@ from homeassistant.const import (
 )
 
 from . import WundasmartDataUpdateCoordinator
-from .const import DOMAIN
+from .const import *
 
 
-SENSORS: list[SensorEntityDescription] = [
+ROOM_SENSORS: list[SensorEntityDescription] = [
     SensorEntityDescription(
         key="temp",
         name="Temperature",
@@ -37,8 +37,49 @@ SENSORS: list[SensorEntityDescription] = [
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.HUMIDITY,
         state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="bat",
+        name="Battery Level",
+        icon="mdi:battery",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=SensorDeviceClass.HUMIDITY,
+        state_class=SensorStateClass.MEASUREMENT,
     )
 ]
+
+TRV_SENSORS: list[SensorEntityDescription] = [
+    SensorEntityDescription(
+        key="vtemp",
+        name="Temperature",
+        icon="mdi:thermometer",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="bat",
+        name="Battery Level",
+        icon="mdi:battery",
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=SensorDeviceClass.HUMIDITY,
+        state_class=SensorStateClass.MEASUREMENT,
+    )
+]
+
+def _sensor_get_room(coordinator: WundasmartDataUpdateCoordinator, sensor_id):
+    """Return a room device dict for sensor"""
+    room_id = int(sensor_id) - MIN_SENSOR_ID + MIN_ROOM_ID
+    return coordinator.data.get(str(room_id) if isinstance(sensor_id, str) else room_id)
+
+
+def _trv_get_room(coordinator: WundasmartDataUpdateCoordinator, trv_id):
+    """Return a room device dict for trv"""
+    trv = coordinator.data.get(trv_id, {})
+    room_idx = trv.get("state", {}).get("room_id")
+    if room_idx is not None:
+        room_id = int(room_idx) + MIN_ROOM_ID
+        return coordinator.data.get(str(room_id) if isinstance(trv_id, str) else room_id)
 
 
 async def async_setup_entry(
@@ -50,20 +91,38 @@ async def async_setup_entry(
     coordinator: WundasmartDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     rooms = (
-        (wunda_id, device) for wunda_id, device
+        (wunda_id, device, room) for wunda_id, device
         in coordinator.data.items()
-        if device.get("device_type") == "ROOM" and "name" in device
+        if device.get("device_type") == "SENSOR"
+        and (room := _sensor_get_room(coordinator, wunda_id)) is not None
+        and room.get("name") is not None
     )
 
-    sensors = itertools.chain(
+    room_sensors = itertools.chain(
         Sensor(wunda_id,
-               device["name"].replace("%20", " ") + " " + desc.name,
+               room["name"].replace("%20", " ") + " " + desc.name,
                coordinator,
-               desc) for wunda_id, device in rooms
-        for desc in SENSORS
+               desc) for wunda_id, device, room in rooms
+        for desc in ROOM_SENSORS
     )
 
-    async_add_entities(sensors, update_before_add=True)
+    trvs = (
+        (wunda_id, device, room) for wunda_id, device
+        in coordinator.data.items()
+        if device.get("device_type") == "TRV"
+        and (room := _trv_get_room(coordinator, wunda_id)) is not None
+        and room.get("name") is not None
+    )
+
+    trv_sensors = itertools.chain(
+        Sensor(wunda_id,
+               room["name"].replace("%20", " ") + f" TRV.{int(wunda_id)-MIN_TRV_ID} {desc.name}",
+               coordinator,
+               desc) for wunda_id, device, room in trvs
+        for desc in TRV_SENSORS
+    )
+
+    async_add_entities(itertools.chain(room_sensors, trv_sensors), update_before_add=True)
 
 
 class Sensor(CoordinatorEntity[WundasmartDataUpdateCoordinator], SensorEntity):
@@ -93,9 +152,9 @@ class Sensor(CoordinatorEntity[WundasmartDataUpdateCoordinator], SensorEntity):
 
     def __update_state(self):
         device = self.coordinator.data.get(self._wunda_id, {})
-        sensor_state = device.get("sensor_state", {})
+        state = device.get("state", {})
         self._attr_available = True
-        self._attr_native_value = sensor_state.get(self.entity_description.key)
+        self._attr_native_value = state.get(self.entity_description.key)
 
     @callback
     def _handle_coordinator_update(self) -> None:

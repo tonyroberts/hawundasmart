@@ -14,6 +14,22 @@
             "device_name": "Smart%20HubSwitch",
             "id": "wunda.0"
         },
+        "1": {
+            "device_type": "SENSOR",
+            "id": "SENSOR.1",
+            "state": {
+                "s": "1",
+                "t": "BT6",
+                "v": "1.8",
+                "temp": "16.0",
+                "rh": "50.0",
+                "temp_ext": "",
+                "ext": "0",
+                "bat": "100",
+                "sig": "88",
+                "alarm": "0"
+            }
+        },
         "121": {
             "device_type": "ROOM",
             "state": {

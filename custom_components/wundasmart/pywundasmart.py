@@ -1,3 +1,4 @@
+from .const import *
 import asyncio
 import aiohttp
 import logging
@@ -11,17 +12,15 @@ DEVICE_DEFS = {'device_sn', 'prod_sn', 'device_name', 'device_type', 'eth_mac', 
 
 def _device_type_from_id(device_id: int) -> str:
     """Infer the device type from the wunda id"""
-    if device_id <= 0:
+    if device_id < MIN_SENSOR_ID:
         return "wunda"  # hub switch
-    if device_id <= 30:
+    if MIN_SENSOR_ID <= device_id <= MAX_SENSOR_ID:
         return"SENSOR"  # thermostats and humidity sensors
-    if device_id <= 90:
+    if MIN_TRV_ID <= device_id <= MAX_TRV_ID:
         return "TRV"  # radiator valves
-    if device_id <= 94:
+    if MIN_UFH_ID <= device_id <= MAX_UFH_ID:
         return "UFH"  # underfloor heating connection box
-    if device_id <= 120:
-        return "UNKNOWN"  # underfloor heating probes perhaps?
-    if device_id <= 150:
+    if MIN_ROOM_ID <= device_id <= MAX_ROOM_ID:
         return "ROOM"
     return "UNKNOWN"
 
