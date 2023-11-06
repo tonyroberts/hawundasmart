@@ -6,6 +6,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.icon import icon_for_battery_level, icon_for_signal_level
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -19,6 +20,13 @@ from homeassistant.const import (
 
 from . import WundasmartDataUpdateCoordinator
 from .const import *
+
+
+def _number_or_none(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
 
 
 ROOM_SENSORS: list[SensorEntityDescription] = [
@@ -41,7 +49,15 @@ ROOM_SENSORS: list[SensorEntityDescription] = [
     SensorEntityDescription(
         key="bat",
         name="Battery Level",
-        icon="mdi:battery",
+        icon=lambda x: icon_for_battery_level(_number_or_none(x)),
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=SensorDeviceClass.HUMIDITY,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="sig",
+        name="Signal Level",
+        icon=lambda x: icon_for_signal_level(_number_or_none(x)),
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.HUMIDITY,
         state_class=SensorStateClass.MEASUREMENT,
@@ -60,12 +76,21 @@ TRV_SENSORS: list[SensorEntityDescription] = [
     SensorEntityDescription(
         key="bat",
         name="Battery Level",
-        icon="mdi:battery",
+        icon=lambda x: icon_for_battery_level(_number_or_none(x)),
+        native_unit_of_measurement=PERCENTAGE,
+        device_class=SensorDeviceClass.HUMIDITY,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="sig",
+        name="Signal Level",
+        icon=lambda x: icon_for_signal_level(_number_or_none(x)),
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.HUMIDITY,
         state_class=SensorStateClass.MEASUREMENT,
     )
 ]
+
 
 def _sensor_get_room(coordinator: WundasmartDataUpdateCoordinator, sensor_id):
     """Return a room device dict for sensor"""
@@ -161,3 +186,9 @@ class Sensor(CoordinatorEntity[WundasmartDataUpdateCoordinator], SensorEntity):
         """Handle updated data from the coordinator."""
         self.__update_state()
         super()._handle_coordinator_update()
+
+    @property
+    def icon(self) -> str:
+        if callable(self.entity_description.icon):
+            return self.entity_description.icon(self.state)
+        return self.entity_description.icon

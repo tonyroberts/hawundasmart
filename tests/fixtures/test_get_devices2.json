@@ -30,6 +30,24 @@
                 "alarm": "0"
             }
         },
+        "31": {
+            "device_type": "TRV",
+            "id": "TRV.31",
+            "state": {
+                "s": "1",
+                "t": "TH3K",
+                "v": "1.2",
+                "vtemp": "15.20",
+                "bat": "50",
+                "sig": "88",
+                "room_id": "0",
+                "vpos_min": "5",
+                "vpos_range": "40",
+                "downforce": "0",
+                "alarm": "0",
+                "trv_range": "716"
+            }
+        },
         "121": {
             "device_type": "ROOM",
             "state": {

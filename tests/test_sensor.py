@@ -23,14 +23,19 @@ async def test_sensors(hass: HomeAssistant, config):
         assert temp_state
         assert temp_state.state == "17.8"
 
-        rh_state = hass.states.get("sensor.test_room_humidity")        
+        rh_state = hass.states.get("sensor.test_room_humidity")
         assert rh_state
         assert rh_state.state == "66.57"
 
-        trv_battery_state = hass.states.get("sensor.test_room_trv_0_battery_level")        
+        trv_battery_state = hass.states.get("sensor.test_room_trv_0_battery_level")
         assert trv_battery_state
         assert trv_battery_state.state == "100"
+        assert trv_battery_state.attributes["icon"] == "mdi:battery"
 
+        trv_signal_state = hass.states.get("sensor.test_room_trv_0_signal_level")
+        assert trv_signal_state
+        assert trv_signal_state.state == "88"
+        assert trv_signal_state.attributes["icon"] == "mdi:signal-cellular-3"
 
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     assert coordinator
@@ -44,6 +49,11 @@ async def test_sensors(hass: HomeAssistant, config):
         assert temp_state
         assert temp_state.state == "16.0"
 
-        rh_state = hass.states.get("sensor.test_room_humidity")        
+        rh_state = hass.states.get("sensor.test_room_humidity")
         assert rh_state
         assert rh_state.state == "50.0"
+
+        trv_battery_state = hass.states.get("sensor.test_room_trv_0_battery_level")
+        assert trv_battery_state
+        assert trv_battery_state.state == "50"
+        assert trv_battery_state.attributes["icon"] == "mdi:battery-50"
