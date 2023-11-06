@@ -88,6 +88,31 @@ TRV_SENSORS: list[SensorEntityDescription] = [
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.HUMIDITY,
         state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="vpos",
+        name="Position",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="vpos_min",
+        name="Position Min",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="vpos_range",
+        name="Position Range",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="downforce",
+        name="Downforce",
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    SensorEntityDescription(
+        key="trv_range",
+        name="TRV Range",
+        state_class=SensorStateClass.MEASUREMENT,
     )
 ]
 
