@@ -71,6 +71,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
     _attr_hvac_modes = SUPPORTED_HVAC_MODES
     _attr_temperature_unit = TEMP_CELSIUS
+    _attr_preset_modes = ["reduced", "eco", "comfort"]
 
     def __init__(
         self,
@@ -93,7 +94,9 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._attr_unique_id = device["id"]
         self._attr_type = device["device_type"]
         self._attr_device_info = coordinator.device_info
-        self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+        self._attr_supported_features = (
+            ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
+        )
         self._attr_current_temperature = None
         self._attr_target_temperature = None
         self._attr_current_humidity = None
@@ -251,6 +254,42 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
             })
         else:
             raise NotImplementedError(f"Unsupported HVAC mode {hvac_mode}")
+
+        # Fetch the updated state
+        await self.coordinator.async_request_refresh()
+
+    async def async_set_preset_mode(self, preset_mode) -> None:
+        device = self.coordinator.data.get(self._wunda_id, {})
+        state = device.get("state", {})
+        sensor_state = device.get("sensor_state", {})
+
+        if preset_mode == "reduced":
+            # Set the preset to your t_lo temperate
+            t_preset = float(state.get("t_lo")) or float(sensor.state("t-lo"))
+
+        elif preset_mode == "eco":
+            # Set the preset to your t_norm temperature
+            t_preset = float(state.get("t_norm")) or float(sensor.state("t_norm"))
+
+        elif preset_mode == "comfort":
+            # Set the preset to your t_hi temperature
+            t_preset = float(state.get("t_hi")) or float(sensor.state("t_hi"))
+        else:
+            raise NotImplementedError(f"Unsupported Preset mode {preset_mode}")
+
+        await send_command(
+            self._session,
+            self._wunda_ip,
+            self._wunda_user,
+            self._wunda_pass,
+            params={
+                "cmd": 1,
+                "roomid": self._wunda_id,
+                "temp": t_preset,
+                "locktt": 0,
+                "time": 0,
+            },
+        )
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
