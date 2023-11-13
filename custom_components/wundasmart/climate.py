@@ -178,7 +178,11 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                 # - 00100000 (0x20) indicates heating demand
                 # - 10000000 (0x80) indicates the adaptive start mode is active
                 flags = int(state["temp_pre"])
-                self._attr_hvac_mode = HVACMode.HEAT if (flags & (0x10 | 0x80)) == 0x10 else HVACMode.AUTO
+                self._attr_hvac_mode = (
+                    HVACMode.OFF if flags & (0x10 | 0x4) == (0x10 | 0x4)  # manually set to off
+                    else HVACMode.HEAT if (flags & (0x10 | 0x80)) == 0x10  # manually set to heat
+                    else HVACMode.AUTO
+                )
                 self._attr_hvac_action = (
                     HVACAction.PREHEATING if ((flags & (0x80 | 0x20)) == (0x80 | 0x20))
                     else HVACAction.HEATING if flags & 0x20 

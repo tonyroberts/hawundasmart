@@ -101,3 +101,19 @@ async def test_trvs_only(hass: HomeAssistant, config):
         assert state
         assert state.attributes["current_temperature"] == 15.5
         assert "current_humidity" not in state.attributes
+
+
+async def test_hvac_mode_when_manually_turned_off(hass: HomeAssistant, config):
+    entry = MockConfigEntry(domain=DOMAIN, data=config)
+    entry.add_to_hass(hass)
+
+    data = deserialize_get_devices_fixture(load_fixture("test_manual_off.json"))
+    with patch("custom_components.wundasmart.get_devices", return_value=data):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("climate.test_room")
+
+        assert state
+        assert state.state == HVACAction.OFF
+        assert state.attributes["hvac_action"] == HVACAction.OFF
