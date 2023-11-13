@@ -11,6 +11,10 @@ If you have a water heater connected to your WundaSmart Hub Switch that can be c
 
 This integration is still in development and may not work for your specific requirements.
 
+If you find this integration useful, please consider supporting the development of this and my other addons and integrations by buying me a coffee
+
+<a href="https://www.buymeacoffee.com/tonyroberts" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
 ## Installation
 
 Installing via HACS is recommended.
@@ -36,7 +40,7 @@ When set up correctly all rooms configured in your Hub Switch will appear as cli
 
 The easiest way of finding your local username and password for the Hub Switch is to use a network traffic capture app on your device that you used to set up and configure the Hub Switch.
 
-One example you can use is the iPhone app `HTTP Traffic Capture`. This installs a VPN on your phone, allowing you to capture traffic between your phone and the Hub Switch. Start capturing, then do something in the WundaSmart app, then look at the captured traffic and your username and password will be visible in one of the requests.
+One example you can use is the iPhone app `HTTP Traffic Capture`. This installs a VPN on your phone, allowing you to capture traffic between your phone and the Hub Switch. Start capturing, then do something in the WundaSmart app, then look at the captured traffic and find the basic auth Authorization header. This can be decoded into `username:password` using any online base64 decoder such as https://decodebase64.com.
 
 ## Tested Hardware
 
