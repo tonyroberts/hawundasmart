@@ -58,7 +58,8 @@ async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, 
 
                     # Add the sensor values to the rooms
                     if device_type == "ROOM":
-                        sensor = devices.get(device_id - 120, {})
+                        sensor_id = device_id - MIN_ROOM_ID + MIN_SENSOR_ID
+                        sensor = devices.get(sensor_id, {})
                         device["sensor_state"] = sensor.get("state", {})
             else:
                 _LOGGER.warning(f"Error getting syncvalues.cgi: {resp}")

@@ -5,8 +5,7 @@ from unittest.mock import patch
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.core import HomeAssistant
 from homeassistant.components.climate import HVACAction
-
-import json
+from .utils import deserialize_get_devices_fixture
 
 
 async def test_climate(hass: HomeAssistant, config):
@@ -14,7 +13,7 @@ async def test_climate(hass: HomeAssistant, config):
     entry.add_to_hass(hass)
 
     # Test setup of climate entity fetches initial state
-    data = json.loads(load_fixture("test_get_devices1.json"))
+    data = deserialize_get_devices_fixture(load_fixture("test_get_devices1.json"))
     with patch("custom_components.wundasmart.get_devices", return_value=data):
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
@@ -23,6 +22,7 @@ async def test_climate(hass: HomeAssistant, config):
 
         assert state
         assert state.attributes["current_temperature"] == 17.8
+        assert state.attributes["current_humidity"] == 66.57
         assert state.attributes["temperature"] == 0
         assert state.state == "auto"
         assert state.attributes["hvac_action"] == HVACAction.OFF
@@ -31,7 +31,7 @@ async def test_climate(hass: HomeAssistant, config):
     assert coordinator
 
     # Test refreshing coordinator updates entity state
-    data = json.loads(load_fixture("test_get_devices2.json"))
+    data = deserialize_get_devices_fixture(load_fixture("test_get_devices2.json"))
     with patch("custom_components.wundasmart.get_devices", return_value=data):
         await coordinator.async_refresh()
         await hass.async_block_till_done()
@@ -44,12 +44,17 @@ async def test_climate(hass: HomeAssistant, config):
         assert state.state == "auto"
         assert state.attributes["hvac_action"] == HVACAction.PREHEATING
 
+
+async def test_set_temperature(hass: HomeAssistant, config):
+    entry = MockConfigEntry(domain=DOMAIN, data=config)
+    entry.add_to_hass(hass)
+
     # Test setting temperature works
-    data = json.loads(load_fixture("test_get_devices3.json"))
-    tdata = json.loads(load_fixture("test_set_temperature.json"))
+    data = deserialize_get_devices_fixture(load_fixture("test_get_devices3.json"))
+    tdata = deserialize_get_devices_fixture(load_fixture("test_set_temperature.json"))
     with patch("custom_components.wundasmart.get_devices", side_effect=[data, tdata]), \
             patch("custom_components.wundasmart.climate.send_command", return_value=None) as mock:
-        await coordinator.async_refresh()
+        await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
         # Check the state before setting the temperature
@@ -70,7 +75,7 @@ async def test_climate(hass: HomeAssistant, config):
         # Check put_state was called for the right entity
         assert mock.call_count == 1
         assert mock.call_args.kwargs["params"]
-        assert mock.call_args.kwargs["params"]["roomid"] == "121"
+        assert mock.call_args.kwargs["params"]["roomid"] == 121
 
         # Check the state was updated
         state = hass.states.get("climate.test_room")
@@ -79,3 +84,20 @@ async def test_climate(hass: HomeAssistant, config):
         assert state.attributes["temperature"] == 20
         assert state.state == "heat"
         assert state.attributes["hvac_action"] == HVACAction.HEATING
+
+
+async def test_trvs_only(hass: HomeAssistant, config):
+    entry = MockConfigEntry(domain=DOMAIN, data=config)
+    entry.add_to_hass(hass)
+
+    # Rooms with TRVs only and no sensor should still get a temperature reading
+    data = deserialize_get_devices_fixture(load_fixture("test_trvs_only.json"))
+    with patch("custom_components.wundasmart.get_devices", return_value=data):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("climate.test_room")
+
+        assert state
+        assert state.attributes["current_temperature"] == 15.5
+        assert "current_humidity" not in state.attributes

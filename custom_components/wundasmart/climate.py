@@ -27,7 +27,7 @@ from aiohttp import ClientSession
 
 from . import WundasmartDataUpdateCoordinator
 from .pywundasmart import send_command
-from .const import DOMAIN
+from .const import DOMAIN, MIN_ROOM_ID, MIN_TRV_ID, MAX_TRV_ID
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -94,36 +94,81 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._attr_type = device["device_type"]
         self._attr_device_info = coordinator.device_info
         self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
-        self._attr_current_temperature = 0
-        self._attr_target_temperature = 0
-        self._attr_current_humidity = 0
+        self._attr_current_temperature = None
+        self._attr_target_temperature = None
+        self._attr_current_humidity = None
         self._attr_hvac_mode = HVACMode.AUTO
 
         # Update with initial state
         self.__update_state()
 
-    def __update_state(self):
-        device = self.coordinator.data.get(self._wunda_id, {})
-        state = device.get("state", {})
-        sensor_state = device.get("sensor_state", {})
+    @property
+    def __room(self):
+        return self.coordinator.data.get(self._wunda_id, {})
+
+    @property
+    def __state(self):
+        return self.__room.get("state", {})
+
+    @property
+    def __sensor_state(self):
+        return self.__room.get("sensor_state", {})
+
+    @property
+    def __trvs(self):
+        for trv in (self.coordinator.data.get(x, {}) for x in range(MIN_TRV_ID, MAX_TRV_ID+1)):
+            room_id = trv.get("state", {}).get("room_id", None)
+            if room_id is not None \
+            and (isinstance(room_id, int) or (isinstance(room_id, str) and room_id.isdigit())) \
+            and (int(room_id) + MIN_ROOM_ID) == self._wunda_id:
+                yield trv
+
+    def __set_current_tempature(self):
+        """Set the current temperature from the coordinator data."""
+        sensor_state = self.__sensor_state
         if sensor_state.get("temp") is not None:
+            # If we've got a room thermostat then use the temperature from that
             try:
                 self._attr_current_temperature = float(sensor_state["temp"])
             except (ValueError, TypeError):
                 _LOGGER.warning(f"Unexpected temperature value '{sensor_state['temp']}' for {self._attr_name}")
+            return
 
+        # Otherwise look for TRVs in this room and use the avergage temperature from those
+        trv_temps = []
+        for trv in self.__trvs:
+            try:
+                trv_temp = float(trv.get("state", {}).get("vtemp", 0))
+                if trv_temp:
+                    trv_temps.append(trv_temp)
+            except (ValueError, TypeError):
+                pass
+
+        if trv_temps:
+            avg_temp = sum(trv_temps) / len(trv_temps)
+            self._attr_current_temperature = avg_temp
+
+    def __set_current_humidity(self):
+        """Set the current humidity from the coordinator data."""
+        sensor_state = self.__sensor_state
         if sensor_state.get("rh") is not None:
             try:
                 self._attr_current_humidity = float(sensor_state["rh"])
             except (ValueError, TypeError):
                 _LOGGER.warning(f"Unexpected humidity value '{sensor_state['rh']}' for {self._attr_name}")
 
+    def __set_target_temperature(self):
+        """Set the set temperature from the coordinator data."""
+        state = self.__state
         if state.get("temp") is not None:
             try:
                 self._attr_target_temperature = float(state["temp"])
             except (ValueError, TypeError):
                 _LOGGER.warning(f"Unexpected set temp value '{state['temp']}' for {self._attr_name}")
 
+    def __set_hvac_state(self):
+        """Set the hvac action and hvac mode from the coordinator data."""
+        state = self.__state
         if state.get("temp_pre") is not None:
             try:
                 # tp appears to be the following flags:
@@ -141,6 +186,12 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                 )
             except (ValueError, TypeError):
                 _LOGGER.warning(f"Unexpected 'temp_pre' value '{state['temp_pre']}' for {self._attr_name}")
+
+    def __update_state(self):
+        self.__set_current_tempature()
+        self.__set_current_humidity()
+        self.__set_target_temperature()
+        self.__set_hvac_state()
 
     @callback
     def _handle_coordinator_update(self) -> None:

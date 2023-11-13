@@ -1,0 +1,86 @@
+{
+    "state": true,
+    "devices": {
+        "0": {
+            "device_type": "wunda",
+            "state": {
+                "hw_mode": "2",
+                "hw_mode_state": "1",
+                "hw_boost_state": "0",
+                "hw_sp": "45",
+                "hw_hist": "5",
+                "hw_ext_temp": "0"
+            },
+            "device_name": "Smart%20HubSwitch",
+            "id": "wunda.0"
+        },
+        "31": {
+            "device_type": "TRV",
+            "id": "TRV.31",
+            "state": {
+                "s": "1",
+                "t": "TH3K",
+                "v": "1.2",
+                "vtemp": "15.00",
+                "bat": "100",
+                "sig": "88",
+                "room_id": "0",
+                "vpos_min": "5",
+                "vpos_range": "40",
+                "downforce": "0",
+                "alarm": "0",
+                "trv_range": "716"
+            }
+        },
+        "32": {
+            "device_type": "TRV",
+            "id": "TRV.32",
+            "state": {
+                "s": "1",
+                "t": "TH3K",
+                "v": "1.2",
+                "vtemp": "16.00",
+                "bat": "100",
+                "sig": "88",
+                "room_id": "0",
+                "vpos_min": "5",
+                "vpos_range": "40",
+                "downforce": "0",
+                "alarm": "0",
+                "trv_range": "716"
+            }
+        },
+        "121": {
+            "device_type": "ROOM",
+            "name": "Test%20Room",
+            "id": "ROOM.121",
+            "state": {
+                "t_lo": "14.00",
+                "t_norm": "19.00",
+                "t_hi": "21.00",
+                "heat": "4",
+                "temp_pre": "0",
+                "prg": "1",
+                "lock": "0",
+                "temp": "0.00",
+                "ntemp": "-1.00",
+                "ntime": "0",
+                "es_avgtime": "0",
+                "zone": "1",
+                "relays": "0",
+                "hb0": "0",
+                "hb1": "0",
+                "enable": "9",
+                "tmax": "27",
+                "tmaxh": "5",
+                "settime": "7200",
+                "pic": "3",
+                "loc_in": "1",
+                "loc_out": "3",
+                "alarm": "0",
+                "tbl": "555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "sensor_state": {}
+        }
+    }
+}
