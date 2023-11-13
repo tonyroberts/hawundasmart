@@ -123,7 +123,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
             and (int(room_id) + MIN_ROOM_ID) == self._wunda_id:
                 yield trv
 
-    def __set_current_tempature(self):
+    def __set_current_temperature(self):
         """Set the current temperature from the coordinator data."""
         sensor_state = self.__sensor_state
         if sensor_state.get("temp") is not None:
@@ -192,7 +192,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                 _LOGGER.warning(f"Unexpected 'temp_pre' value '{state['temp_pre']}' for {self._attr_name}")
 
     def __update_state(self):
-        self.__set_current_tempature()
+        self.__set_current_temperature()
         self.__set_current_humidity()
         self.__set_target_temperature()
         self.__set_hvac_state()
