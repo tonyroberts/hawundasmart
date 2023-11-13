@@ -14,7 +14,7 @@
   "dependencies": [],
   "codeowners": [
     "@ob0t",
-    "tonyroberts"
+    "@tonyroberts"
   ],
   "iot_class": "local_polling"
 }
