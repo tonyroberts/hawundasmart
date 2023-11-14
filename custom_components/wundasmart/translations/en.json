@@ -19,5 +19,18 @@
                 "title": "Wundasmart configuration"
             }
         }
+    },
+    "entity": {
+        "climate": {
+            "balboa": {
+                "state_attributes": {
+                    "preset_mode": {
+                        "state": {
+                            "reduced": "Reduced"
+                        }
+                    }
+                }
+            }
+        }
     }
 }

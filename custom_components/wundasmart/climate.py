@@ -10,6 +10,8 @@ from homeassistant.components.climate import (
     ClimateEntityFeature,
     HVACAction,
     HVACMode,
+    PRESET_ECO,
+    PRESET_COMFORT
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -35,6 +37,14 @@ SUPPORTED_HVAC_MODES = [
     HVACMode.OFF,
     HVACMode.AUTO,
     HVACMode.HEAT,
+]
+
+PRESET_REDUCED = "reduced"
+
+SUPPORTED_PRESET_MODES = [
+    PRESET_REDUCED,
+    PRESET_ECO,
+    PRESET_COMFORT
 ]
 
 PARALLEL_UPDATES = 1
@@ -71,7 +81,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
     _attr_hvac_modes = SUPPORTED_HVAC_MODES
     _attr_temperature_unit = TEMP_CELSIUS
-    _attr_preset_modes = ["reduced", "eco", "comfort"]
+    _attr_preset_modes = SUPPORTED_PRESET_MODES
 
     def __init__(
         self,
@@ -101,6 +111,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._attr_target_temperature = None
         self._attr_current_humidity = None
         self._attr_hvac_mode = HVACMode.AUTO
+        self._attr_preset_mode = None
 
         # Update with initial state
         self.__update_state()
@@ -259,21 +270,17 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         await self.coordinator.async_request_refresh()
 
     async def async_set_preset_mode(self, preset_mode) -> None:
-        device = self.coordinator.data.get(self._wunda_id, {})
-        state = device.get("state", {})
-        sensor_state = device.get("sensor_state", {})
-
-        if preset_mode == "reduced":
+        if preset_mode == PRESET_REDUCED:
             # Set the preset to your t_lo temperate
-            t_preset = float(state.get("t_lo")) or float(sensor.state("t-lo"))
+            t_preset = float(self.__state["t_lo"])
 
-        elif preset_mode == "eco":
+        elif preset_mode == PRESET_ECO:
             # Set the preset to your t_norm temperature
-            t_preset = float(state.get("t_norm")) or float(sensor.state("t_norm"))
+            t_preset = float(self.__state["t_norm"])
 
-        elif preset_mode == "comfort":
+        elif preset_mode == PRESET_COMFORT:
             # Set the preset to your t_hi temperature
-            t_preset = float(state.get("t_hi")) or float(sensor.state("t_hi"))
+            t_preset = float(self.__state["t_hi"])
         else:
             raise NotImplementedError(f"Unsupported Preset mode {preset_mode}")
 
