@@ -132,7 +132,8 @@ async def test_set_presets(hass: HomeAssistant, config):
         state = hass.states.get("climate.test_room")
 
         assert state
-        assert state.attributes["temperature"] == 0
+        assert state.attributes["temperature"] == 21.0
+        assert state.attributes["preset_mode"] == "comfort"
 
         # set the preset 'reduced'
         await hass.services.async_call("climate", "set_preset_mode", {
