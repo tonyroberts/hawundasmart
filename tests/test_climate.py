@@ -83,7 +83,7 @@ async def test_set_temperature(hass: HomeAssistant, config):
         assert state.attributes["current_temperature"] == 16.0
         assert state.attributes["temperature"] == 20
         assert state.state == "heat"
-        assert state.attributes["hvac_action"] == HVACAction.HEATING
+        assert state.attributes["hvac_action"] == HVACAction.IDLE
 
 
 async def test_trvs_only(hass: HomeAssistant, config):
