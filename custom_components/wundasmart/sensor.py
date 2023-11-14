@@ -1,5 +1,6 @@
 """Support for WundaSmart sensors."""
 from __future__ import annotations
+from dataclasses import dataclass
 import itertools
 
 from homeassistant.core import HomeAssistant, callback
@@ -29,8 +30,15 @@ def _number_or_none(x):
         return None
 
 
-ROOM_SENSORS: list[SensorEntityDescription] = [
-    SensorEntityDescription(
+@dataclass
+class WundaSensorDescription(SensorEntityDescription):
+    available: bool | callable = True
+
+
+
+
+ROOM_SENSORS: list[WundaSensorDescription] = [
+    WundaSensorDescription(
         key="temp",
         name="Temperature",
         icon="mdi:thermometer",
@@ -38,7 +46,7 @@ ROOM_SENSORS: list[SensorEntityDescription] = [
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    SensorEntityDescription(
+    WundaSensorDescription(
         key="rh",
         name="Humidity",
         icon="mdi:water-percent",
@@ -46,7 +54,16 @@ ROOM_SENSORS: list[SensorEntityDescription] = [
         device_class=SensorDeviceClass.HUMIDITY,
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    SensorEntityDescription(
+    WundaSensorDescription(
+        key="temp_ext",
+        name="External Probe Temperature",
+        icon="mdi:thermometer",
+        available=lambda state: bool(int(state.get("ext", 0))),
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    WundaSensorDescription(
         key="bat",
         name="Battery Level",
         icon=lambda x: icon_for_battery_level(_number_or_none(x)),
@@ -54,7 +71,7 @@ ROOM_SENSORS: list[SensorEntityDescription] = [
         device_class=SensorDeviceClass.HUMIDITY,
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    SensorEntityDescription(
+    WundaSensorDescription(
         key="sig",
         name="Signal Level",
         icon=lambda x: icon_for_signal_level(_number_or_none(x)),
@@ -64,8 +81,8 @@ ROOM_SENSORS: list[SensorEntityDescription] = [
     )
 ]
 
-TRV_SENSORS: list[SensorEntityDescription] = [
-    SensorEntityDescription(
+TRV_SENSORS: list[WundaSensorDescription] = [
+    WundaSensorDescription(
         key="vtemp",
         name="Temperature",
         icon="mdi:thermometer",
@@ -73,7 +90,7 @@ TRV_SENSORS: list[SensorEntityDescription] = [
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    SensorEntityDescription(
+    WundaSensorDescription(
         key="bat",
         name="Battery Level",
         icon=lambda x: icon_for_battery_level(_number_or_none(x)),
@@ -81,7 +98,7 @@ TRV_SENSORS: list[SensorEntityDescription] = [
         device_class=SensorDeviceClass.HUMIDITY,
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    SensorEntityDescription(
+    WundaSensorDescription(
         key="sig",
         name="Signal Level",
         icon=lambda x: icon_for_signal_level(_number_or_none(x)),
@@ -89,27 +106,27 @@ TRV_SENSORS: list[SensorEntityDescription] = [
         device_class=SensorDeviceClass.HUMIDITY,
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    SensorEntityDescription(
+    WundaSensorDescription(
         key="vpos",
         name="Position",
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    SensorEntityDescription(
+    WundaSensorDescription(
         key="vpos_min",
         name="Position Min",
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    SensorEntityDescription(
+    WundaSensorDescription(
         key="vpos_range",
         name="Position Range",
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    SensorEntityDescription(
+    WundaSensorDescription(
         key="downforce",
         name="Downforce",
         state_class=SensorStateClass.MEASUREMENT,
     ),
-    SensorEntityDescription(
+    WundaSensorDescription(
         key="trv_range",
         name="TRV Range",
         state_class=SensorStateClass.MEASUREMENT,
@@ -202,10 +219,17 @@ class Sensor(CoordinatorEntity[WundasmartDataUpdateCoordinator], SensorEntity):
         # Update with initial state
         self.__update_state()
 
+    @property
+    def available(self):
+        if callable(self.entity_description.available):
+            device = self.coordinator.data.get(self._wunda_id, {})
+            state = device.get("state", {})
+            return self.entity_description.available(state)
+        return self.entity_description.available
+
     def __update_state(self):
         device = self.coordinator.data.get(self._wunda_id, {})
         state = device.get("state", {})
-        self._attr_available = True
         self._attr_native_value = state.get(self.entity_description.key)
 
     @callback
