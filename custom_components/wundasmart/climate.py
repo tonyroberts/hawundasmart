@@ -252,8 +252,8 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
         self._attr_hvac_action = (
             HVACAction.PREHEATING if adaptive_start and heating
-            else HVACAction.HEATING if heating
-            else HVACAction.IDLE if demand
+            else HVACAction.HEATING if heating and demand
+            else HVACAction.IDLE if heating or demand
             else HVACAction.OFF
         )
 

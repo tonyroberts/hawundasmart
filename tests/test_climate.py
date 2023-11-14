@@ -25,7 +25,7 @@ async def test_climate(hass: HomeAssistant, config):
         assert state.attributes["current_humidity"] == 66.57
         assert state.attributes["temperature"] == 0
         assert state.state == "auto"
-        assert state.attributes["hvac_action"] == HVACAction.OFF
+        assert state.attributes["hvac_action"] == HVACAction.IDLE
 
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     assert coordinator
