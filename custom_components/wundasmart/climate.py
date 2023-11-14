@@ -10,6 +10,8 @@ from homeassistant.components.climate import (
     ClimateEntityFeature,
     HVACAction,
     HVACMode,
+    PRESET_ECO,
+    PRESET_COMFORT
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -36,6 +38,20 @@ SUPPORTED_HVAC_MODES = [
     HVACMode.AUTO,
     HVACMode.HEAT,
 ]
+
+PRESET_REDUCED = "reduced"
+
+SUPPORTED_PRESET_MODES = [
+    PRESET_REDUCED,
+    PRESET_ECO,
+    PRESET_COMFORT
+]
+
+PRESET_MODE_STATE_KEYS = {
+    PRESET_REDUCED: "t_lo",
+    PRESET_ECO: "t_norm",
+    PRESET_COMFORT: "t_hi"
+}
 
 PARALLEL_UPDATES = 1
 
@@ -71,6 +87,8 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
     _attr_hvac_modes = SUPPORTED_HVAC_MODES
     _attr_temperature_unit = TEMP_CELSIUS
+    _attr_preset_modes = SUPPORTED_PRESET_MODES
+    _attr_translation_key = DOMAIN
 
     def __init__(
         self,
@@ -93,11 +111,14 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._attr_unique_id = device["id"]
         self._attr_type = device["device_type"]
         self._attr_device_info = coordinator.device_info
-        self._attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+        self._attr_supported_features = (
+            ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
+        )
         self._attr_current_temperature = None
         self._attr_target_temperature = None
         self._attr_current_humidity = None
         self._attr_hvac_mode = HVACMode.AUTO
+        self._attr_preset_mode = None
 
         # Update with initial state
         self.__update_state()
@@ -166,6 +187,26 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
             except (ValueError, TypeError):
                 _LOGGER.warning(f"Unexpected set temp value '{state['temp']}' for {self._attr_name}")
 
+    def __set_preset_mode(self):
+        state = self.__state
+        try:
+            set_temp = float(state.get("temp", 0.0))
+        except (ValueError, TypeError):
+            _LOGGER.warning(f"Unexpected set temp value '{state['temp']}' for {self._attr_name}")
+            return
+
+        for preset_mode, state_key in PRESET_MODE_STATE_KEYS.items():
+            if state.get(state_key) is not None:
+                try:
+                    t_preset = float(self.__state[state_key])
+                    if t_preset == set_temp:
+                        self._attr_preset_mode = preset_mode
+                        break
+                except (ValueError, TypeError):
+                    _LOGGER.warning(f"Unexpected {state_key} value '{state[state_key]}' for {self._attr_name}")
+        else:
+            self._attr_preset_mode = None
+
     def __set_hvac_state(self):
         """Set the hvac action and hvac mode from the coordinator data."""
         state = self.__state
@@ -195,6 +236,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self.__set_current_temperature()
         self.__set_current_humidity()
         self.__set_target_temperature()
+        self.__set_preset_mode()
         self.__set_hvac_state()
 
     @callback
@@ -251,6 +293,30 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
             })
         else:
             raise NotImplementedError(f"Unsupported HVAC mode {hvac_mode}")
+
+        # Fetch the updated state
+        await self.coordinator.async_request_refresh()
+
+    async def async_set_preset_mode(self, preset_mode) -> None:
+        state_key = PRESET_MODE_STATE_KEYS.get(preset_mode)
+        if state_key is None:
+            raise NotImplementedError(f"Unsupported Preset mode {preset_mode}")
+        
+        t_preset = float(self.__state[state_key])
+
+        await send_command(
+            self._session,
+            self._wunda_ip,
+            self._wunda_user,
+            self._wunda_pass,
+            params={
+                "cmd": 1,
+                "roomid": self._wunda_id,
+                "temp": t_preset,
+                "locktt": 0,
+                "time": 0,
+            },
+        )
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()

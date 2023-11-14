@@ -117,3 +117,59 @@ async def test_hvac_mode_when_manually_turned_off(hass: HomeAssistant, config):
         assert state
         assert state.state == HVACAction.OFF
         assert state.attributes["hvac_action"] == HVACAction.OFF
+
+
+async def test_set_presets(hass: HomeAssistant, config):
+    entry = MockConfigEntry(domain=DOMAIN, data=config)
+    entry.add_to_hass(hass)
+
+    data = deserialize_get_devices_fixture(load_fixture("test_set_presets.json"))
+    with patch("custom_components.wundasmart.get_devices", return_value=data), \
+            patch("custom_components.wundasmart.climate.send_command", return_value=None) as mock:
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("climate.test_room")
+
+        assert state
+        assert state.attributes["temperature"] == 21.0
+        assert state.attributes["preset_mode"] == "comfort"
+
+        # set the preset 'reduced'
+        await hass.services.async_call("climate", "set_preset_mode", {
+            "entity_id": "climate.test_room",
+            "preset_mode": "reduced"
+        })
+        await hass.async_block_till_done()
+
+        # Check send_command was called correctly
+        assert mock.call_count == 1
+        assert mock.call_args.kwargs["params"]
+        assert mock.call_args.kwargs["params"]["roomid"] == 121
+        assert mock.call_args.kwargs["params"]["temp"] == 14.0
+
+        # set the preset 'eco'
+        await hass.services.async_call("climate", "set_preset_mode", {
+            "entity_id": "climate.test_room",
+            "preset_mode": "eco"
+        })
+        await hass.async_block_till_done()
+
+        # Check send_command was called correctly
+        assert mock.call_count == 2
+        assert mock.call_args.kwargs["params"]
+        assert mock.call_args.kwargs["params"]["roomid"] == 121
+        assert mock.call_args.kwargs["params"]["temp"] == 19.0
+
+        # set the preset 'comfort'
+        await hass.services.async_call("climate", "set_preset_mode", {
+            "entity_id": "climate.test_room",
+            "preset_mode": "comfort"
+        })
+        await hass.async_block_till_done()
+
+        # Check send_command was called correctly
+        assert mock.call_count == 3
+        assert mock.call_args.kwargs["params"]
+        assert mock.call_args.kwargs["params"]["roomid"] == 121
+        assert mock.call_args.kwargs["params"]["temp"] == 21.0
