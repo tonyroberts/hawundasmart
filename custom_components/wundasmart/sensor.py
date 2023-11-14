@@ -33,6 +33,7 @@ def _number_or_none(x):
 @dataclass
 class WundaSensorDescription(SensorEntityDescription):
     available: bool | callable = True
+    default: float | None = None
 
 
 ROOM_SENSORS: list[WundaSensorDescription] = [
@@ -57,6 +58,7 @@ ROOM_SENSORS: list[WundaSensorDescription] = [
         name="External Probe Temperature",
         icon="mdi:thermometer",
         available=lambda state: bool(int(state.get("ext", 0))),
+        default=0.0,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
         state_class=SensorStateClass.MEASUREMENT,
@@ -238,7 +240,10 @@ class Sensor(CoordinatorEntity[WundasmartDataUpdateCoordinator], SensorEntity):
     def __update_state(self):
         device = self.coordinator.data.get(self._wunda_id, {})
         state = device.get("state", {})
-        self._attr_native_value = state.get(self.entity_description.key)
+        value = state.get(self.entity_description.key)
+        if not value and self.entity_description.default is not None:
+            value = self.entity_description.default
+        self._attr_native_value = value
 
     @callback
     def _handle_coordinator_update(self) -> None:
