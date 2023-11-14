@@ -1,6 +1,6 @@
 """Support for WundaSmart sensors."""
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import itertools
 
 from homeassistant.core import HomeAssistant, callback
@@ -33,8 +33,6 @@ def _number_or_none(x):
 @dataclass
 class WundaSensorDescription(SensorEntityDescription):
     available: bool | callable = True
-
-
 
 
 ROOM_SENSORS: list[WundaSensorDescription] = [
@@ -202,30 +200,40 @@ class Sensor(CoordinatorEntity[WundasmartDataUpdateCoordinator], SensorEntity):
         wunda_id: str,
         name: str,
         coordinator: WundasmartDataUpdateCoordinator,
-        description: SensorEntityDescription,
+        description: WundaSensorDescription,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._wunda_id = wunda_id
+        self._coordinator = coordinator
         self._attr_name = name
 
         if (device_sn := coordinator.device_sn) is not None:
             self._attr_unique_id = f"{device_sn}.{wunda_id}.{description.key}"
         self._attr_device_info = coordinator.device_info
 
-        self.entity_description = description
-        self._coordinator = coordinator
+        self.entity_description = self.__update_description_defaults(description)
 
         # Update with initial state
         self.__update_state()
 
     @property
     def available(self):
-        if callable(self.entity_description.available):
+        return self.__is_available(self.entity_description)
+
+    def __is_available(self, description: WundaSensorDescription):
+        if callable(description.available):
             device = self.coordinator.data.get(self._wunda_id, {})
             state = device.get("state", {})
-            return self.entity_description.available(state)
-        return self.entity_description.available
+            return description.available(state)
+        return description.available
+
+    def __update_description_defaults(self, description: WundaSensorDescription):
+        kwargs = asdict(description)
+        available = self.__is_available(description)
+        kwargs["entity_registry_enabled_default"] = available
+        kwargs["entity_registry_visible_default"] = available
+        return WundaSensorDescription(**kwargs)
 
     def __update_state(self):
         device = self.coordinator.data.get(self._wunda_id, {})
