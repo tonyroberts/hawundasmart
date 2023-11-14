@@ -22,7 +22,7 @@
     },
     "entity": {
         "climate": {
-            "balboa": {
+            "wundasmart": {
                 "state_attributes": {
                     "preset_mode": {
                         "state": {
