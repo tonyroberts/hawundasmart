@@ -210,28 +210,52 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     def __set_hvac_state(self):
         """Set the hvac action and hvac mode from the coordinator data."""
         state = self.__state
+
+        temp_pre = 0
         if state.get("temp_pre") is not None:
             try:
-                # tp appears to be the following flags:
-                # - 00000001 (0x01) indicates a manual override is set until the next manual override
-                # - 00000100 (0x04) indicates the set point temperature has been set to 'off'
-                # - 00010000 (0x10) indicates a manual override has been set
-                # - 00100000 (0x20) indicates heating demand
-                # - 10000000 (0x80) indicates the adaptive start mode is active
-                flags = int(state["temp_pre"])
-                self._attr_hvac_mode = (
-                    HVACMode.OFF if flags & (0x10 | 0x4) == (0x10 | 0x4)  # manually set to off
-                    else HVACMode.HEAT if (flags & (0x10 | 0x80)) == 0x10  # manually set to heat
-                    else HVACMode.AUTO
-                )
-                self._attr_hvac_action = (
-                    HVACAction.PREHEATING if ((flags & (0x80 | 0x20)) == (0x80 | 0x20))
-                    else HVACAction.HEATING if flags & 0x20 
-                    else HVACAction.OFF if flags & 0x4
-                    else HVACAction.IDLE
-                )
+                # temp_pre appears to be the following flags:
+                # - 0000 0001 (0x01) indicates a manual override is set until the next manual override
+                # - 0000 0100 (0x04) indicates the set point temperature has been set to 'off'
+                # - 0001 0000 (0x10) indicates a manual override has been set
+                # - 0010 0000 (0x20) indicates heating demand
+                # - 1000 0000 (0x80) indicates the adaptive start mode is active
+                temp_pre = int(state["temp_pre"])
             except (ValueError, TypeError):
                 _LOGGER.warning(f"Unexpected 'temp_pre' value '{state['temp_pre']}' for {self._attr_name}")
+
+        heat = 0
+        if state.get("heat") is not None:
+            try:
+                # heat appears to be the following flags:
+                # - 0000 0001 (0x01) indicates heat is being delivered
+                # - 0000 0010 (0x02) indicates heating demand
+                # - 0000 0100 (0x04) not sure what this means, always seem to be set
+                #
+                # eg. when off, heat is 4
+                #     demand but no heat delivered (pump delay?), heat is 6
+                #     demand and providing heat, heat is 7
+                #     no demand but heat still on (pump delay?), heat is 5
+                heat = int(state["heat"])
+            except (ValueError, TypeError):
+                _LOGGER.warning(f"Unexpected 'heat' value '{state['heat']}' for {self._attr_name}")
+
+        self._attr_hvac_mode = (
+            HVACMode.OFF if temp_pre & (0x10 | 0x4) == (0x10 | 0x4)  # manually set to off
+            else HVACMode.HEAT if (temp_pre & (0x10 | 0x80)) == 0x10  # manually set to heat
+            else HVACMode.AUTO
+        )
+
+        adaptive_start = temp_pre & 0x80
+        heating = heat & 0x1
+        demand = heat & 0x2
+
+        self._attr_hvac_action = (
+            HVACAction.PREHEATING if adaptive_start and heating
+            else HVACAction.HEATING if heating and demand
+            else HVACAction.IDLE if heating or demand
+            else HVACAction.OFF
+        )
 
     def __update_state(self):
         self.__set_current_temperature()
