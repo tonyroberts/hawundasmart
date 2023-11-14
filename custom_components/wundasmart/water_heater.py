@@ -75,10 +75,9 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         OPERATION_BOOST_ON,
         OPERATION_BOOST_OFF
     ]
-
     _attr_supported_features = WaterHeaterEntityFeature.OPERATION_MODE
-
     _attr_temperature_unit = TEMP_CELSIUS
+    _attr_translation_key = DOMAIN
 
     def __init__(
         self,

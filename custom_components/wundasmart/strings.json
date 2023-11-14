@@ -22,15 +22,15 @@
   },
   "entity": {
     "climate": {
-        "wundasmart": {
-            "state_attributes": {
-                "preset_mode": {
-                    "state": {
-                        "reduced": "Reduced"
-                    }
-                }
+      "wundasmart": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "reduced": "Reduced"
             }
+          }
         }
+      }
     }
   }
 }

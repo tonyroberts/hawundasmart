@@ -88,6 +88,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     _attr_hvac_modes = SUPPORTED_HVAC_MODES
     _attr_temperature_unit = TEMP_CELSIUS
     _attr_preset_modes = SUPPORTED_PRESET_MODES
+    _attr_translation_key = DOMAIN
 
     def __init__(
         self,

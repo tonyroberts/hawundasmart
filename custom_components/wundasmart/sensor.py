@@ -178,6 +178,8 @@ async def async_setup_entry(
 class Sensor(CoordinatorEntity[WundasmartDataUpdateCoordinator], SensorEntity):
     """Sensor entity for WundaSmart sensor values."""
 
+    _attr_translation_key = DOMAIN
+
     def __init__(
         self,
         wunda_id: str,
