@@ -227,7 +227,8 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                 self._attr_hvac_action = (
                     HVACAction.PREHEATING if ((flags & (0x80 | 0x20)) == (0x80 | 0x20))
                     else HVACAction.HEATING if flags & 0x20 
-                    else HVACAction.OFF
+                    else HVACAction.OFF if flags & 0x4
+                    else HVACAction.IDLE
                 )
             except (ValueError, TypeError):
                 _LOGGER.warning(f"Unexpected 'temp_pre' value '{state['temp_pre']}' for {self._attr_name}")
