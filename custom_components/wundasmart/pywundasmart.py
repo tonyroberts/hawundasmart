@@ -9,6 +9,16 @@ _LOGGER = logging.getLogger(__name__)
 
 DEVICE_DEFS = {'device_sn', 'prod_sn', 'device_name', 'device_type', 'eth_mac', 'name', 'id', 'i'}
 
+_semaphores = {}
+
+def _get_semaphore(wunda_ip):
+    """Return a semaphore object to restrict making concurrent requests to the Wundasmart hub switch."""
+    semaphore = _semaphores.get(wunda_ip)
+    if semaphore is None:
+        semaphore = asyncio.Semaphore(value=1)
+        _semaphores[wunda_ip] = semaphore
+    return semaphore
+
 
 def _device_type_from_id(device_id: int) -> str:
     """Infer the device type from the wunda id"""
@@ -32,7 +42,10 @@ async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, 
     # Query the syncvalues API, which returns a list of all sensor values for all devices. Data is formatted as semicolon-separated k;v pairs
     wunda_url = f"http://{wunda_ip}/syncvalues.cgi"
     try:
-        async with httpsession.get(wunda_url, auth=aiohttp.BasicAuth(wunda_user, wunda_pass), timeout=timeout) as resp:
+        async with _get_semaphore(wunda_ip), \
+                httpsession.get(wunda_url,
+                                auth=aiohttp.BasicAuth(wunda_user, wunda_pass),
+                                timeout=timeout) as resp:
             status = resp.status
             if status == 200:
                 data = await resp.text()
@@ -87,7 +100,11 @@ async def send_command(session: aiohttp.ClientSession,
     while attempts < retries:
         attempts += 1
 
-        async with session.get(wunda_url, auth=aiohttp.BasicAuth(wunda_user, wunda_pass), params=params, timeout=timeout) as resp:
+        async with _get_semaphore(wunda_ip), \
+                session.get(wunda_url,
+                            auth=aiohttp.BasicAuth(wunda_user, wunda_pass), 
+                            params=params,
+                            timeout=timeout) as resp:
             status = resp.status
             if status == 200:
                 return json.loads(await resp.text())
