@@ -37,6 +37,10 @@ async def test_sensors(hass: HomeAssistant, config):
         assert trv_signal_state.state == "88"
         assert trv_signal_state.attributes["icon"] == "mdi:signal-cellular-3"
 
+        ext_temp_state = hass.states.get("sensor.test_room_external_probe_temperature")
+        assert ext_temp_state
+        assert ext_temp_state.state == "18.0"
+
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     assert coordinator
 
