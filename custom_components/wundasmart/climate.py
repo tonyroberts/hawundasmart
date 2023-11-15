@@ -323,25 +323,26 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         await self.coordinator.async_request_refresh()
 
     async def async_set_preset_mode(self, preset_mode) -> None:
-        state_key = PRESET_MODE_STATE_KEYS.get(preset_mode)
-        if state_key is None:
-            raise NotImplementedError(f"Unsupported Preset mode {preset_mode}")
-        
-        t_preset = float(self.__state[state_key])
+        if preset_mode:
+            state_key = PRESET_MODE_STATE_KEYS.get(preset_mode)
+            if state_key is None:
+                raise NotImplementedError(f"Unsupported Preset mode {preset_mode}")
 
-        await send_command(
-            self._session,
-            self._wunda_ip,
-            self._wunda_user,
-            self._wunda_pass,
-            params={
-                "cmd": 1,
-                "roomid": self._wunda_id,
-                "temp": t_preset,
-                "locktt": 0,
-                "time": 0,
-            },
-        )
+            t_preset = float(self.__state[state_key])
+
+            await send_command(
+                self._session,
+                self._wunda_ip,
+                self._wunda_user,
+                self._wunda_pass,
+                params={
+                    "cmd": 1,
+                    "roomid": self._wunda_id,
+                    "temp": t_preset,
+                    "locktt": 0,
+                    "time": 0,
+                },
+            )
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
