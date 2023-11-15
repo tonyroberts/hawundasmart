@@ -25,11 +25,6 @@ PLATFORMS: Final[list[Platform]] = [
 ]
 
 
-async def async_setup(hass: HomeAssistant, config):
-    "Setting up this integration using YAML is not supported."
-    return True
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up WundaSmart from a config entry."""
     hass.data.setdefault(DOMAIN, {})
