@@ -36,8 +36,7 @@ SUPPORTED_FEATURES = WaterHeaterEntityFeature.ON_OFF | WaterHeaterEntityFeature.
 STATE_AUTO_ON = "auto_on"
 STATE_AUTO_OFF = "auto_off"
 STATE_BOOST_ON = "boost_on"
-STATE_OFF = "boost_off"
-STATE_AUTO = "auto"
+STATE_BOOST_OFF = "boost_off"
 
 OPERATION_SET_AUTO = "auto"
 OPERATION_BOOST_30 = "boost_30"
@@ -176,7 +175,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
             if hw_mode_state:
                 self._attr_current_operation = STATE_BOOST_ON if hw_boost_state else STATE_AUTO_ON
             else:
-                self._attr_current_operation = STATE_OFF if hw_boost_state else STATE_AUTO_OFF
+                self._attr_current_operation = STATE_BOOST_OFF if hw_boost_state else STATE_AUTO_OFF
 
     @callback
     def _handle_coordinator_update(self) -> None:

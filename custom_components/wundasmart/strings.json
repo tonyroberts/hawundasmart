@@ -35,11 +35,10 @@
     "water_heater": {
       "wundasmart": {
         "state": {
-          "auto": "Auto",
           "auto_on": "On (Auto)",
           "auto_off": "Off (Auto)",
           "boost_on": "On",
-          "off": "Off"
+          "boost_off": "Off"
         },
         "state_attributes": {
           "operation_mode": {

@@ -31,6 +31,31 @@
                     }
                 }
             }
+        },
+        "water_heater": {
+            "wundasmart": {
+                "state": {
+                    "auto_on": "On (Auto)",
+                    "auto_off": "Off (Auto)",
+                    "boost_on": "On",
+                    "boost_off": "Off"
+                },
+                "state_attributes": {
+                    "operation_mode": {
+                        "state": {
+                            "auto": "Auto",
+                            "boost_30": "Boost (30 mins)",
+                            "boost_60": "Boost (1 hour)",
+                            "boost_90": "Boost (1.5 hours)",
+                            "boost_120": "Boost (2 hours)",
+                            "off_30": "Off (30 mins)",
+                            "off_60": "Off (1 hour)",
+                            "off_90": "Off (1.5 hours)",
+                            "off_120": "Off (2 hours)"
+                        }
+                    }
+                }
+            }
         }
     }
 }
