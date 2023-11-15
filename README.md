@@ -1,6 +1,8 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg?style=for-the-badge)](
 https://github.com/custom-components/hacs)
 
+![pytests](https://github.com/tonyroberts/hawundasmart/actions/workflows/pytest.yml/badge.svg)
+
 # WundaSmart Integration for Home Assistant
 
 A Home Assistant integration to monitor and control WundaSmart heating systems.
@@ -54,4 +56,4 @@ This integration is still in development but has been used with the following Wu
 
 ## Credits
 
-This project is a fork of https://github.com/ob0t/hawundasmart.
+This project was originally a fork of https://github.com/ob0t/hawundasmart.
