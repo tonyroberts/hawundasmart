@@ -62,19 +62,14 @@ HW_OFF_OPERATIONS = {
     OPERATION_OFF_120
 }
 
-HW_BOOST_TIME = {
-    OPERATION_BOOST_30: 30 * 60,
-    OPERATION_BOOST_60: 60 * 60,
-    OPERATION_BOOST_90: 90 * 60,
-    OPERATION_BOOST_120: 120 * 60
-}
 
-HW_OFF_TIME = {
-    OPERATION_OFF_30: 30 * 60,
-    OPERATION_OFF_60: 60 * 60,
-    OPERATION_OFF_90: 90 * 60,
-    OPERATION_OFF_120: 120 * 60
-}
+def _split_operation(key):
+    """Return (operation prefix, duration in seconds)"""
+    if "_" in key:
+        key, duration = key.split("_", 1)
+        if duration.isdigit():
+            return key, int(duration) * 60
+    return key, 0
 
 
 async def async_setup_entry(
@@ -119,10 +114,13 @@ async def async_setup_entry(
     )
 
 
+
+
+
 class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEntity):
     """Representation of an Wundasmart water heater."""
 
-    _attr_operation_list = list({ OPERATION_SET_AUTO } | HW_BOOST_OPERATIONS | HW_OFF_OPERATIONS)
+    _attr_operation_list = list(sorted({ OPERATION_SET_AUTO } | HW_BOOST_OPERATIONS | HW_OFF_OPERATIONS, key=_split_operation))
     _attr_supported_features = WaterHeaterEntityFeature.OPERATION_MODE
     _attr_temperature_unit = TEMP_CELSIUS
     _attr_translation_key = DOMAIN
@@ -191,14 +189,16 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
     async def async_set_operation_mode(self, operation_mode: str) -> None:
         if operation_mode:
             if operation_mode in HW_OFF_OPERATIONS:
+                _, duration = _split_operation(operation_mode)
                 await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
                     "cmd": 3,
-                    "hw_off_time": HW_OFF_TIME[operation_mode]
+                    "hw_off_time": duration
                 })
             elif operation_mode in HW_BOOST_OPERATIONS:
+                _, duration = _split_operation(operation_mode)
                 await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
                     "cmd": 3,
-                    "hw_boost_time": HW_BOOST_TIME[operation_mode]
+                    "hw_boost_time": duration
                 })
             elif operation_mode == OPERATION_SET_AUTO:
                 await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
