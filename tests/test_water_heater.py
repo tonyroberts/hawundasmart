@@ -46,3 +46,64 @@ async def test_water_header(hass: HomeAssistant, config):
 
         assert state
         assert state.state == STATE_AUTO_OFF
+
+
+async def test_water_header_set_operation(hass: HomeAssistant, config):
+    entry = MockConfigEntry(domain=DOMAIN, data=config)
+    entry.add_to_hass(hass)
+
+    data = json.loads(load_fixture("test_get_devices1.json"))
+    with patch("custom_components.wundasmart.get_devices", return_value=data), \
+            patch("custom_components.wundasmart.water_heater.send_command", return_value=None) as mock:
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("water_heater.smart_hubswitch")
+        assert state
+
+        await hass.services.async_call("water_heater", "set_operation_mode", {
+            "entity_id": "water_heater.smart_hubswitch",
+            "operation_mode": "boost_30"
+        })
+        await hass.async_block_till_done()
+
+        # Check send_command was called correctly
+        assert mock.call_count == 1
+        assert mock.call_args.kwargs["params"]["cmd"] == 3
+        assert mock.call_args.kwargs["params"]["hw_boost_time"] == 1800
+
+        await hass.services.async_call("water_heater", "set_operation_mode", {
+            "entity_id": "water_heater.smart_hubswitch",
+            "operation_mode": "off_60"
+        })
+        await hass.async_block_till_done()
+
+        assert mock.call_count == 2
+        assert mock.call_args.kwargs["params"]["cmd"] == 3
+        assert mock.call_args.kwargs["params"]["hw_off_time"] == 3600
+
+
+async def test_water_header_boost(hass: HomeAssistant, config):
+    entry = MockConfigEntry(domain=DOMAIN, data=config)
+    entry.add_to_hass(hass)
+
+    # Test setup of water heater entity fetches initial state
+    data = json.loads(load_fixture("test_get_devices1.json"))
+    with patch("custom_components.wundasmart.get_devices", return_value=data), \
+            patch("custom_components.wundasmart.water_heater.send_command", return_value=None) as mock:
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("water_heater.smart_hubswitch")
+        assert state
+
+        await hass.services.async_call("wundasmart", "hw_boost", {
+            "entity_id": "water_heater.smart_hubswitch",
+            "duration": "00:10:00"
+        })
+        await hass.async_block_till_done()
+
+        # Check send_command was called correctly
+        assert mock.call_count == 1
+        assert mock.call_args.kwargs["params"]["cmd"] == 3
+        assert mock.call_args.kwargs["params"]["hw_boost_time"] == 600

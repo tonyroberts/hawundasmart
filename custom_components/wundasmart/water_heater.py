@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
+from aiohttp import ClientSession
+from datetime import timedelta
 
 from homeassistant.components.water_heater import (
     WaterHeaterEntity,
@@ -15,12 +18,12 @@ from homeassistant.const import (
     CONF_PASSWORD,
     TEMP_CELSIUS,
 )
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import aiohttp_client
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.helpers import aiohttp_client, entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from aiohttp import ClientSession
+import homeassistant.helpers.config_validation as cv
+import voluptuous as vol
 
 from . import WundasmartDataUpdateCoordinator
 from .pywundasmart import send_command
@@ -30,18 +33,43 @@ _LOGGER = logging.getLogger(__name__)
 
 SUPPORTED_FEATURES = WaterHeaterEntityFeature.ON_OFF | WaterHeaterEntityFeature.OPERATION_MODE
 
-STATE_AUTO_ON = "On (Auto)"
-STATE_AUTO_OFF = "Off (Auto)"
-STATE_BOOST_ON = "On (Boost)"
-STATE_BOOST_OFF = "Off (Manual)"
-STATE_AUTO = "Auto"
+STATE_AUTO_ON = "auto_on"
+STATE_AUTO_OFF = "auto_off"
+STATE_BOOST_ON = "boost_on"
+STATE_BOOST_OFF = "boost_off"
 
-HW_BOOST_TIME = 60 * 30  # boost for 30 minutes
-HW_OFF_TIME = 60 * 60  # switch off for 1 hour
+OPERATION_SET_AUTO = "auto"
+OPERATION_BOOST_30 = "boost_30"
+OPERATION_BOOST_60 = "boost_60"
+OPERATION_BOOST_90 = "boost_90"
+OPERATION_BOOST_120 = "boost_120"
+OPERATION_OFF_30 = "off_30"
+OPERATION_OFF_60 = "off_60"
+OPERATION_OFF_90 = "off_90"
+OPERATION_OFF_120 = "off_90"
 
-OPERATION_SET_AUTO = "Auto"
-OPERATION_BOOST_ON = "Boost (30 mins)"
-OPERATION_BOOST_OFF = "Off (1 hour)"
+HW_BOOST_OPERATIONS = {
+    OPERATION_BOOST_30,
+    OPERATION_BOOST_60,
+    OPERATION_BOOST_90,
+    OPERATION_BOOST_120
+}
+
+HW_OFF_OPERATIONS = {
+    OPERATION_OFF_30,
+    OPERATION_OFF_60,
+    OPERATION_OFF_90,
+    OPERATION_OFF_120
+}
+
+
+def _split_operation(key):
+    """Return (operation prefix, duration in seconds)"""
+    if "_" in key:
+        key, duration = key.split("_", 1)
+        if duration.isdigit():
+            return key, int(duration) * 60
+    return key, 0
 
 
 async def async_setup_entry(
@@ -66,15 +94,33 @@ async def async_setup_entry(
         for wunda_id, device in coordinator.data.items() if device.get("device_type") == "wunda" and "device_name" in device
     )
 
+    platform = entity_platform.current_platform.get()
+    assert platform
+
+    platform.async_register_entity_service(
+        "hw_boost",
+        {
+            vol.Required("duration"): cv.positive_time_period
+        },
+        "async_set_boost",
+    )
+
+    platform.async_register_entity_service(
+        "hw_off",
+        {
+            vol.Required("duration"): cv.positive_time_period
+        },
+        "async_set_off",
+    )
+
+
+
+
 
 class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEntity):
     """Representation of an Wundasmart water heater."""
 
-    _attr_operation_list = [
-        OPERATION_SET_AUTO,
-        OPERATION_BOOST_ON,
-        OPERATION_BOOST_OFF
-    ]
+    _attr_operation_list = list(sorted({ OPERATION_SET_AUTO } | HW_BOOST_OPERATIONS | HW_OFF_OPERATIONS, key=_split_operation))
     _attr_supported_features = WaterHeaterEntityFeature.OPERATION_MODE
     _attr_temperature_unit = TEMP_CELSIUS
     _attr_translation_key = DOMAIN
@@ -141,23 +187,48 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         self._handle_coordinator_update()
 
     async def async_set_operation_mode(self, operation_mode: str) -> None:
-        if operation_mode == OPERATION_BOOST_OFF:
+        if operation_mode:
+            if operation_mode in HW_OFF_OPERATIONS:
+                _, duration = _split_operation(operation_mode)
+                await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+                    "cmd": 3,
+                    "hw_off_time": duration
+                })
+            elif operation_mode in HW_BOOST_OPERATIONS:
+                _, duration = _split_operation(operation_mode)
+                await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+                    "cmd": 3,
+                    "hw_boost_time": duration
+                })
+            elif operation_mode == OPERATION_SET_AUTO:
+                await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+                    "cmd": 3,
+                    "hw_boost_time": 0
+                })
+            else:
+                raise NotImplementedError(f"Unsupported operation mode {operation_mode}")
+
+        # Fetch the updated state
+        await self.coordinator.async_request_refresh()
+
+    async def async_set_boost(self, duration: timedelta):
+        seconds = int((duration.days * 24 * 3600) + math.ceil(duration.seconds))
+        if seconds > 0:
             await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
                 "cmd": 3,
-                "hw_off_time": HW_OFF_TIME
+                "hw_boost_time": seconds
             })
-        elif operation_mode == OPERATION_BOOST_ON:
+
+        # Fetch the updated state
+        await self.coordinator.async_request_refresh()
+
+    async def async_set_off(self, duration: timedelta):
+        seconds = int((duration.days * 24 * 3600) + math.ceil(duration.seconds))
+        if seconds > 0:
             await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
                 "cmd": 3,
-                "hw_boost_time": HW_BOOST_TIME
+                "hw_off_time": seconds
             })
-        elif operation_mode == OPERATION_SET_AUTO:
-            await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-                "cmd": 3,
-                "hw_boost_time": 0
-            })
-        else:
-            raise NotImplementedError(f"Unsupported operation mode {operation_mode}")
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()

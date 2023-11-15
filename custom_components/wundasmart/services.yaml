@@ -1,0 +1,34 @@
+hw_boost:
+  name: Boost hot water
+  description: Turns on the water heater for a specific amount of time.
+  target:
+    entity:
+      integration: wundasmart
+      domain: water_heater
+  fields:
+    duration:
+      name: Duration
+      description: Time before the water heater turns off.
+      required: true
+      advanced: false
+      example: '00:30:00'
+      default: '00:30:00'
+      selector:
+        time:
+hw_off:
+  name: Turn off hot water
+  description: Turns the water heater off for a specific amount of time.
+  target:
+    entity:
+      integration: wundasmart
+      domain: water_heater
+  fields:
+    duration:
+      name: Duration
+      description: Time to turn the water heater off for.
+      required: true
+      advanced: false
+      example: '00:30:00'
+      default: '00:30:00'
+      selector:
+        time:
