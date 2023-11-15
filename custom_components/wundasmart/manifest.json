@@ -1,20 +1,20 @@
 {
   "domain": "wundasmart",
   "name": "WundaSmart",
-  "config_flow": true,
-  "documentation": "https://github.com/tonyroberts/hawundasmart",
-  "issue_tracker": "https://github.com/tonyroberts/hawundasmart/issues",
-  "version": "0.0.1",
-  "requirements": [
-    "xmltodict"
-  ],
-  "ssdp": [],
-  "zeroconf": [],
-  "homekit": {},
-  "dependencies": [],
   "codeowners": [
     "@ob0t",
     "@tonyroberts"
   ],
-  "iot_class": "local_polling"
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/tonyroberts/hawundasmart",
+  "homekit": {},
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/tonyroberts/hawundasmart/issues",
+  "requirements": [
+    "xmltodict"
+  ],
+  "ssdp": [],
+  "version": "0.0.1",
+  "zeroconf": []
 }
