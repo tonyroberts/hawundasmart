@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
+from aiohttp import ClientSession
+from datetime import timedelta
 
 from homeassistant.components.water_heater import (
     WaterHeaterEntity,
@@ -15,12 +18,12 @@ from homeassistant.const import (
     CONF_PASSWORD,
     TEMP_CELSIUS,
 )
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import aiohttp_client
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.helpers import aiohttp_client, entity_platform
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from aiohttp import ClientSession
+import homeassistant.helpers.config_validation as cv
+import voluptuous as vol
 
 from . import WundasmartDataUpdateCoordinator
 from .pywundasmart import send_command
@@ -64,6 +67,17 @@ async def async_setup_entry(
             coordinator,
         )
         for wunda_id, device in coordinator.data.items() if device.get("device_type") == "wunda" and "device_name" in device
+    )
+
+    platform = entity_platform.current_platform.get()
+    assert platform
+
+    platform.async_register_entity_service(
+        "hw_boost",
+        {
+            vol.Required("duration"): cv.positive_time_period
+        },
+        "async_set_boost",
     )
 
 
@@ -158,6 +172,17 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
             })
         else:
             raise NotImplementedError(f"Unsupported operation mode {operation_mode}")
+
+        # Fetch the updated state
+        await self.coordinator.async_request_refresh()
+
+    async def async_set_boost(self, duration: timedelta):
+        seconds = int((duration.days * 24 * 3600) + math.ceil(duration.seconds))
+        if seconds > 0:
+            await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+                "cmd": 3,
+                "hw_boost_time": seconds
+            })
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
