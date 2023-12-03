@@ -86,7 +86,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         attempts = 0
-        max_attempts = 30
+        max_attempts = 10
         session = aiohttp_client.async_get_clientsession(self._hass)
         while attempts < max_attempts:
             attempts += 1
@@ -95,8 +95,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
                 session,
                 self._wunda_ip,
                 self._wunda_user,
-                self._wunda_pass,
-                timeout=1
+                self._wunda_pass
             )
 
             if result["state"]:

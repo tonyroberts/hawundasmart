@@ -9,6 +9,8 @@ _LOGGER = logging.getLogger(__name__)
 
 DEVICE_DEFS = {'device_sn', 'prod_sn', 'device_name', 'device_type', 'eth_mac', 'name', 'id', 'i'}
 
+_default_timeout = aiohttp.ClientTimeout(sock_connect=5, sock_read=5)
+
 _semaphores = {}
 
 def _get_semaphore(wunda_ip):
@@ -35,7 +37,7 @@ def _device_type_from_id(device_id: int) -> str:
     return "UNKNOWN"
 
 
-async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, wunda_pass, timeout=10):
+async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, wunda_pass, timeout: aiohttp.ClientTimeout =_default_timeout):
     """ Returns a list of active devices connected to the Wundasmart controller """
     devices = {}
 
@@ -89,7 +91,7 @@ async def send_command(session: aiohttp.ClientSession,
                        wunda_user: str, 
                        wunda_pass: str,
                        params: dict,
-                       timeout: int = 3,
+                       timeout: aiohttp.ClientTimeout = _default_timeout,
                        retries: int = 5,
                        retry_delay: float = 0.5):
     """Send a command to the wunda smart hub controller"""
