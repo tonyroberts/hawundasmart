@@ -3,17 +3,18 @@ from __future__ import annotations
 
 from datetime import timedelta
 import asyncio
+import aiohttp
 import logging
 from typing import Final
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, Platform
+from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, CONF_SCAN_INTERVAL, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.device_registry import DeviceInfo
 
-from .const import DOMAIN
+from .const import *
 from .pywundasmart import get_devices
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,9 +32,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     wunda_ip = entry.data[CONF_HOST]
     wunda_user = entry.data[CONF_USERNAME]
     wunda_pass = entry.data[CONF_PASSWORD]
+    update_interval = timedelta(seconds=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
+    connect_timeout = entry.data.get(CONF_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT)
+    read_timeout = entry.data.get(CONF_READ_TIMEOUT, DEFAULT_READ_TIMEOUT)
+    timeout = aiohttp.ClientTimeout(sock_connect=connect_timeout, sock_read=read_timeout)
 
     coordinator = WundasmartDataUpdateCoordinator(
-        hass, wunda_ip, wunda_user, wunda_pass
+        hass, wunda_ip, wunda_user, wunda_pass, update_interval, timeout
     )
     await coordinator.async_config_entry_first_refresh()
 
@@ -69,7 +74,7 @@ async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry) -> Non
 class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
     """Class to manage fetching data from WundaSmart API."""
 
-    def __init__(self, hass, wunda_ip, wunda_user, wunda_pass):
+    def __init__(self, hass, wunda_ip, wunda_user, wunda_pass, update_interval, timeout):
         """Initialize."""
         self._hass = hass
         self._wunda_ip = wunda_ip
@@ -80,13 +85,13 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
         self._device_name = None
         self._sw_version = None
         self._hw_version = None
+        self._timeout = timeout
 
-        update_interval = timedelta(minutes=1)
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=update_interval)
 
     async def _async_update_data(self):
         attempts = 0
-        max_attempts = 30
+        max_attempts = 5
         session = aiohttp_client.async_get_clientsession(self._hass)
         while attempts < max_attempts:
             attempts += 1
@@ -96,7 +101,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
                 self._wunda_ip,
                 self._wunda_user,
                 self._wunda_pass,
-                timeout=1
+                timeout=self._timeout
             )
 
             if result["state"]:
