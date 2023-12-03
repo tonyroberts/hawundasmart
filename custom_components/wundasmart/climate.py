@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 import logging
+import aiohttp
 from typing import Any
 
 from homeassistant.components.climate import (
@@ -29,7 +30,7 @@ from aiohttp import ClientSession
 
 from . import WundasmartDataUpdateCoordinator
 from .pywundasmart import send_command
-from .const import DOMAIN, MIN_ROOM_ID, MIN_TRV_ID, MAX_TRV_ID
+from .const import *
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,6 +66,11 @@ async def async_setup_entry(
     wunda_pass: str = entry.data[CONF_PASSWORD]
     coordinator: WundasmartDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     session = aiohttp_client.async_get_clientsession(hass)
+
+    connect_timeout = entry.data.get(CONF_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT)
+    read_timeout = entry.data.get(CONF_READ_TIMEOUT, DEFAULT_READ_TIMEOUT)
+    timeout = aiohttp.ClientTimeout(sock_connect=connect_timeout, sock_read=read_timeout)
+
     rooms = (
         (wunda_id, device) for wunda_id, device
         in coordinator.data.items()
@@ -78,6 +84,7 @@ async def async_setup_entry(
             wunda_id,
             device,
             coordinator,
+            timeout
         )
         for wunda_id, device in rooms))
 
@@ -99,6 +106,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         wunda_id: str,
         device: dict[str, Any],
         coordinator: WundasmartDataUpdateCoordinator,
+        timeout: aiohttp.ClientTimeout
     ) -> None:
         """Initialize the Wundasmart climate."""
         super().__init__(coordinator)
@@ -119,6 +127,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._attr_current_humidity = None
         self._attr_hvac_mode = HVACMode.AUTO
         self._attr_preset_mode = None
+        self._timeout = timeout
 
         # Update with initial state
         self.__update_state()
@@ -277,13 +286,19 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
     async def async_set_temperature(self, temperature, **kwargs):
         # Set the new target temperature
-        await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-            "cmd": 1,
-            "roomid": self._wunda_id,
-            "temp": temperature,
-            "locktt": 0,
-            "time": 0
-        })
+        await send_command(
+            self._session,
+            self._wunda_ip,
+            self._wunda_user,
+            self._wunda_pass,
+            timeout=self._timeout,
+            params={
+                "cmd": 1,
+                "roomid": self._wunda_id,
+                "temp": temperature,
+                "locktt": 0,
+                "time": 0
+            })
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
@@ -291,31 +306,49 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     async def async_set_hvac_mode(self, hvac_mode: HVACMode):
         if hvac_mode == HVACMode.AUTO:
             # Set to programmed mode
-            await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-                "cmd": 1,
-                "roomid": self._wunda_id,
-                "prog": None,
-                "locktt": 0,
-                "time": 0
-            })
+            await send_command(
+                self._session,
+                self._wunda_ip,
+                self._wunda_user,
+                self._wunda_pass,
+                timeout=self._timeout,
+                params={
+                    "cmd": 1,
+                    "roomid": self._wunda_id,
+                    "prog": None,
+                    "locktt": 0,
+                    "time": 0
+                })
         elif hvac_mode == HVACMode.HEAT:
             # Set the target temperature to the current temperature + 1 degree, rounded up
-            await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-                "cmd": 1,
-                "roomid": self._wunda_id,
-                "temp": math.ceil(self._attr_current_temperature) + 1,
-                "locktt": 0,
-                "time": 0
-            })
+            await send_command(
+                self._session,
+                self._wunda_ip,
+                self._wunda_user,
+                self._wunda_pass,
+                timeout=self._timeout,
+                params={
+                    "cmd": 1,
+                    "roomid": self._wunda_id,
+                    "temp": math.ceil(self._attr_current_temperature) + 1,
+                    "locktt": 0,
+                    "time": 0
+                })
         elif hvac_mode == HVACMode.OFF:
             # Set the target temperature to zero
-            await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-                "cmd": 1,
-                "roomid": self._wunda_id,
-                "temp": 0.0,
-                "locktt": 0,
-                "time": 0
-            })
+            await send_command(
+                self._session,
+                self._wunda_ip,
+                self._wunda_user,
+                self._wunda_pass,
+                timeout=self._timeout,
+                params={
+                    "cmd": 1,
+                    "roomid": self._wunda_id,
+                    "temp": 0.0,
+                    "locktt": 0,
+                    "time": 0
+                })
         else:
             raise NotImplementedError(f"Unsupported HVAC mode {hvac_mode}")
 
@@ -335,6 +368,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                 self._wunda_ip,
                 self._wunda_user,
                 self._wunda_pass,
+                timeout=self._timeout,
                 params={
                     "cmd": 1,
                     "roomid": self._wunda_id,

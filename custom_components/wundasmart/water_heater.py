@@ -24,10 +24,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
+import aiohttp
 
 from . import WundasmartDataUpdateCoordinator
 from .pywundasmart import send_command
-from .const import DOMAIN
+from .const import *
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -81,6 +82,11 @@ async def async_setup_entry(
     wunda_pass: str = entry.data[CONF_PASSWORD]
     coordinator: WundasmartDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     session = aiohttp_client.async_get_clientsession(hass)
+
+    connect_timeout = entry.data.get(CONF_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT)
+    read_timeout = entry.data.get(CONF_READ_TIMEOUT, DEFAULT_READ_TIMEOUT)
+    timeout = aiohttp.ClientTimeout(sock_connect=connect_timeout, sock_read=read_timeout)
+
     async_add_entities(
         Device(
             session,
@@ -90,6 +96,7 @@ async def async_setup_entry(
             wunda_id,
             device,
             coordinator,
+            timeout
         )
         for wunda_id, device in coordinator.data.items() if device.get("device_type") == "wunda" and "device_name" in device
     )
@@ -114,9 +121,6 @@ async def async_setup_entry(
     )
 
 
-
-
-
 class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEntity):
     """Representation of an Wundasmart water heater."""
 
@@ -134,6 +138,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         wunda_id: str,
         device: dict[str, Any],
         coordinator: WundasmartDataUpdateCoordinator,
+        timeout: aiohttp.ClientTimeout
     ) -> None:
         """Initialize the Wundasmart water_heater."""
         super().__init__(coordinator)
@@ -146,6 +151,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         self._attr_unique_id = device["id"]
         self._attr_type = device["device_type"]
         self._attr_device_info = coordinator.device_info
+        self._timeout = timeout
 
         # Update with initial state
         self.__update_state()
@@ -190,21 +196,39 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         if operation_mode:
             if operation_mode in HW_OFF_OPERATIONS:
                 _, duration = _split_operation(operation_mode)
-                await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-                    "cmd": 3,
-                    "hw_off_time": duration
-                })
+                await send_command(
+                    self._session,
+                    self._wunda_ip,
+                    self._wunda_user,
+                    self._wunda_pass,
+                    timeout=self._timeout,
+                    params={
+                        "cmd": 3,
+                        "hw_off_time": duration
+                    })
             elif operation_mode in HW_BOOST_OPERATIONS:
                 _, duration = _split_operation(operation_mode)
-                await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-                    "cmd": 3,
-                    "hw_boost_time": duration
-                })
+                await send_command(
+                    self._session,
+                    self._wunda_ip,
+                    self._wunda_user,
+                    self._wunda_pass,
+                    timeout=self._timeout,
+                    params={
+                        "cmd": 3,
+                        "hw_boost_time": duration
+                    })
             elif operation_mode == OPERATION_SET_AUTO:
-                await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-                    "cmd": 3,
-                    "hw_boost_time": 0
-                })
+                await send_command(
+                    self._session,
+                    self._wunda_ip,
+                    self._wunda_user,
+                    self._wunda_pass,
+                    timeout=self._timeout,
+                    params={
+                        "cmd": 3,
+                        "hw_boost_time": 0
+                    })
             else:
                 raise NotImplementedError(f"Unsupported operation mode {operation_mode}")
 
