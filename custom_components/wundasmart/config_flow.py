@@ -19,14 +19,6 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 
-STEP_INIT_DATA_SCHEMA = vol.Schema(
-    {
-        vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
-        vol.Optional(CONF_CONNECT_TIMEOUT, default=DEFAULT_CONNECT_TIMEOUT): int,
-        vol.Optional(CONF_READ_TIMEOUT, default=DEFAULT_READ_TIMEOUT): int
-    }
-)
-
 
 class Hub:
     """Wundasmart Hub class."""
@@ -107,7 +99,25 @@ class OptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        return self.async_show_form(step_id="init", data_schema=STEP_INIT_DATA_SCHEMA)
+        options = {
+            vol.Optional(
+                CONF_SCAN_INTERVAL,
+                default=self.config_entry.options.get(
+                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                )): int,
+            vol.Optional(
+                CONF_CONNECT_TIMEOUT,
+                default=self.config_entry.options.get(
+                    CONF_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT
+                )): int,
+            vol.Optional(
+                CONF_READ_TIMEOUT,
+                default=self.config_entry.options.get(
+                    CONF_READ_TIMEOUT, DEFAULT_READ_TIMEOUT
+                )): int
+        }
+
+        return self.async_show_form(step_id="init", data_schema=vol.Schema(options))
 
 
 class CannotConnect(exceptions.HomeAssistantError):
