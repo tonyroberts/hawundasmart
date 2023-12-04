@@ -32,9 +32,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     wunda_ip = entry.data[CONF_HOST]
     wunda_user = entry.data[CONF_USERNAME]
     wunda_pass = entry.data[CONF_PASSWORD]
-    update_interval = timedelta(seconds=entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
-    connect_timeout = entry.data.get(CONF_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT)
-    read_timeout = entry.data.get(CONF_READ_TIMEOUT, DEFAULT_READ_TIMEOUT)
+    update_interval = timedelta(seconds=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
+    connect_timeout = entry.options.get(CONF_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT)
+    read_timeout = entry.options.get(CONF_READ_TIMEOUT, DEFAULT_READ_TIMEOUT)
     timeout = aiohttp.ClientTimeout(sock_connect=connect_timeout, sock_read=read_timeout)
 
     coordinator = WundasmartDataUpdateCoordinator(

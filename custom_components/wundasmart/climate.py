@@ -67,8 +67,8 @@ async def async_setup_entry(
     coordinator: WundasmartDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     session = aiohttp_client.async_get_clientsession(hass)
 
-    connect_timeout = entry.data.get(CONF_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT)
-    read_timeout = entry.data.get(CONF_READ_TIMEOUT, DEFAULT_READ_TIMEOUT)
+    connect_timeout = entry.options.get(CONF_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT)
+    read_timeout = entry.options.get(CONF_READ_TIMEOUT, DEFAULT_READ_TIMEOUT)
     timeout = aiohttp.ClientTimeout(sock_connect=connect_timeout, sock_read=read_timeout)
 
     rooms = (
