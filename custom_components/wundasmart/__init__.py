@@ -92,17 +92,22 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         attempts = 0
         max_attempts = 5
-        session = aiohttp_client.async_get_clientsession(self._hass)
         while attempts < max_attempts:
             attempts += 1
 
-            result = await get_devices(
-                session,
-                self._wunda_ip,
-                self._wunda_user,
-                self._wunda_pass,
-                timeout=self._timeout
-            )
+            try:
+                async with aiohttp.ClientSession() as session:
+                    result = await get_devices(
+                        session,
+                        self._wunda_ip,
+                        self._wunda_user,
+                        self._wunda_pass,
+                        timeout=self._timeout
+                    )
+            finally:
+                # Zero-sleep to allow underlying connections to close
+                # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
+                await asyncio.sleep(0)
 
             if result["state"]:
                 break

@@ -1,6 +1,7 @@
 """Config flow to configure Wundasmart."""
 import voluptuous as vol
 from typing import Any
+import aiohttp
 
 from homeassistant import config_entries, core, exceptions
 from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_SCAN_INTERVAL
@@ -32,12 +33,18 @@ class Hub:
 
     async def authenticate(self):
         """Wundasmart Hub class authenticate."""
-        return await get_devices(
-            aiohttp_client.async_get_clientsession(self._hass),
-            self._wunda_ip,
-            self._wunda_user,
-            self._wunda_pass,
-        )
+        try:
+            async with aiohttp.ClientSession() as session:
+                return await get_devices(
+                    session,
+                    self._wunda_ip,
+                    self._wunda_user,
+                    self._wunda_pass,
+                )
+        finally:
+            # Zero-sleep to allow underlying connections to close
+            # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
+            await asyncio.sleep(0)
 
 
 async def validate_input(hass: core.HomeAssistant, wunda_ip, wunda_user, wunda_pass):

@@ -1,10 +1,10 @@
 """Support for WundaSmart water heater."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 from typing import Any
-from aiohttp import ClientSession
 from datetime import timedelta
 
 from homeassistant.components.water_heater import (
@@ -81,7 +81,6 @@ async def async_setup_entry(
     wunda_user: str = entry.data[CONF_USERNAME]
     wunda_pass: str = entry.data[CONF_PASSWORD]
     coordinator: WundasmartDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
-    session = aiohttp_client.async_get_clientsession(hass)
 
     connect_timeout = entry.options.get(CONF_CONNECT_TIMEOUT, DEFAULT_CONNECT_TIMEOUT)
     read_timeout = entry.options.get(CONF_READ_TIMEOUT, DEFAULT_READ_TIMEOUT)
@@ -89,7 +88,6 @@ async def async_setup_entry(
 
     async_add_entities(
         Device(
-            session,
             wunda_ip,
             wunda_user,
             wunda_pass,
@@ -131,7 +129,6 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
 
     def __init__(
         self,
-        session: ClientSession,
         wunda_ip: str,
         wunda_user: str,
         wunda_pass: str,
@@ -142,7 +139,6 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
     ) -> None:
         """Initialize the Wundasmart water_heater."""
         super().__init__(coordinator)
-        self._session = session
         self._wunda_ip = wunda_ip
         self._wunda_user = wunda_user
         self._wunda_pass = wunda_pass
@@ -193,44 +189,53 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         self._handle_coordinator_update()
 
     async def async_set_operation_mode(self, operation_mode: str) -> None:
-        if operation_mode:
-            if operation_mode in HW_OFF_OPERATIONS:
-                _, duration = _split_operation(operation_mode)
-                await send_command(
-                    self._session,
-                    self._wunda_ip,
-                    self._wunda_user,
-                    self._wunda_pass,
-                    timeout=self._timeout,
-                    params={
-                        "cmd": 3,
-                        "hw_off_time": duration
-                    })
-            elif operation_mode in HW_BOOST_OPERATIONS:
-                _, duration = _split_operation(operation_mode)
-                await send_command(
-                    self._session,
-                    self._wunda_ip,
-                    self._wunda_user,
-                    self._wunda_pass,
-                    timeout=self._timeout,
-                    params={
-                        "cmd": 3,
-                        "hw_boost_time": duration
-                    })
-            elif operation_mode == OPERATION_SET_AUTO:
-                await send_command(
-                    self._session,
-                    self._wunda_ip,
-                    self._wunda_user,
-                    self._wunda_pass,
-                    timeout=self._timeout,
-                    params={
-                        "cmd": 3,
-                        "hw_boost_time": 0
-                    })
-            else:
-                raise NotImplementedError(f"Unsupported operation mode {operation_mode}")
+        try:
+            if operation_mode:
+                if operation_mode in HW_OFF_OPERATIONS:
+                    _, duration = _split_operation(operation_mode)
+                    async with aiohttp.ClientSession() as session:
+                        await send_command(
+                            session,
+                            self._wunda_ip,
+                            self._wunda_user,
+                            self._wunda_pass,
+                            timeout=self._timeout,
+                            params={
+                                "cmd": 3,
+                                "hw_off_time": duration
+                            })
+                elif operation_mode in HW_BOOST_OPERATIONS:
+                    _, duration = _split_operation(operation_mode)
+                    async with aiohttp.ClientSession() as session:
+                        await send_command(
+                            session,
+                            self._wunda_ip,
+                            self._wunda_user,
+                            self._wunda_pass,
+                            timeout=self._timeout,
+                            params={
+                                "cmd": 3,
+                                "hw_boost_time": duration
+                            })
+                elif operation_mode == OPERATION_SET_AUTO:
+                    async with aiohttp.ClientSession() as session:
+                        await send_command(
+                            session,
+                            self._wunda_ip,
+                            self._wunda_user,
+                            self._wunda_pass,
+                            timeout=self._timeout,
+                            params={
+                                "cmd": 3,
+                                "hw_boost_time": 0
+                            })
+                else:
+                    raise NotImplementedError(f"Unsupported operation mode {operation_mode}")
+
+        finally:
+            # Zero-sleep to allow underlying connections to close
+            # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
+            await asyncio.sleep(0)
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
@@ -238,10 +243,16 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
     async def async_set_boost(self, duration: timedelta):
         seconds = int((duration.days * 24 * 3600) + math.ceil(duration.seconds))
         if seconds > 0:
-            await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-                "cmd": 3,
-                "hw_boost_time": seconds
-            })
+            try:
+                async with aiohttp.ClientSession() as session:
+                    await send_command(session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+                        "cmd": 3,
+                        "hw_boost_time": seconds
+                    })
+            finally:
+                # Zero-sleep to allow underlying connections to close
+                # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
+                await asyncio.sleep(0)
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
@@ -249,10 +260,16 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
     async def async_set_off(self, duration: timedelta):
         seconds = int((duration.days * 24 * 3600) + math.ceil(duration.seconds))
         if seconds > 0:
-            await send_command(self._session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-                "cmd": 3,
-                "hw_off_time": seconds
-            })
+            try:
+                async with aiohttp.ClientSession() as session:
+                    await send_command(session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
+                        "cmd": 3,
+                        "hw_off_time": seconds
+                    })
+            finally:
+                # Zero-sleep to allow underlying connections to close
+                # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
+                await asyncio.sleep(0)
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
