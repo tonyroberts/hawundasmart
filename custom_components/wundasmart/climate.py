@@ -4,7 +4,6 @@ from __future__ import annotations
 import math
 import logging
 import aiohttp
-import asyncio
 from typing import Any
 
 from homeassistant.components.climate import (
@@ -28,6 +27,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import WundasmartDataUpdateCoordinator
 from .pywundasmart import send_command
+from .session import get_session
 from .const import *
 
 _LOGGER = logging.getLogger(__name__)
@@ -280,7 +280,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
     async def async_set_temperature(self, temperature, **kwargs):
         # Set the new target temperature
-        async with aiohttp.ClientSession() as session:
+        async with get_session() as session:
             await send_command(
                 session,
                 self._wunda_ip,
@@ -295,70 +295,60 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                     "time": 0
                 })
 
-        # Zero-sleep to allow underlying connections to close
-        # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
-        await asyncio.sleep(0)
-
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode):
-        try:
-            if hvac_mode == HVACMode.AUTO:
-                # Set to programmed mode
-                async with aiohttp.ClientSession() as session:
-                    await send_command(
-                        session,
-                        self._wunda_ip,
-                        self._wunda_user,
-                        self._wunda_pass,
-                        timeout=self._timeout,
-                        params={
-                            "cmd": 1,
-                            "roomid": self._wunda_id,
-                            "prog": None,
-                            "locktt": 0,
-                            "time": 0
-                        })
-            elif hvac_mode == HVACMode.HEAT:
-                # Set the target temperature to the current temperature + 1 degree, rounded up
-                async with aiohttp.ClientSession() as session:
-                    await send_command(
-                        session,
-                        self._wunda_ip,
-                        self._wunda_user,
-                        self._wunda_pass,
-                        timeout=self._timeout,
-                        params={
-                            "cmd": 1,
-                            "roomid": self._wunda_id,
-                            "temp": math.ceil(self._attr_current_temperature) + 1,
-                            "locktt": 0,
-                            "time": 0
-                        })
-            elif hvac_mode == HVACMode.OFF:
-                # Set the target temperature to zero
-                async with aiohttp.ClientSession() as session:
-                    await send_command(
-                        session,
-                        self._wunda_ip,
-                        self._wunda_user,
-                        self._wunda_pass,
-                        timeout=self._timeout,
-                        params={
-                            "cmd": 1,
-                            "roomid": self._wunda_id,
-                            "temp": 0.0,
-                            "locktt": 0,
-                            "time": 0
-                        })
-            else:
-                raise NotImplementedError(f"Unsupported HVAC mode {hvac_mode}")
-
-        finally:
-            # Zero-sleep to allow underlying connections to close
-            # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
-            await asyncio.sleep(0)
+        if hvac_mode == HVACMode.AUTO:
+            # Set to programmed mode
+            async with get_session() as session:
+                await send_command(
+                    session,
+                    self._wunda_ip,
+                    self._wunda_user,
+                    self._wunda_pass,
+                    timeout=self._timeout,
+                    params={
+                        "cmd": 1,
+                        "roomid": self._wunda_id,
+                        "prog": None,
+                        "locktt": 0,
+                        "time": 0
+                    })
+        elif hvac_mode == HVACMode.HEAT:
+            # Set the target temperature to the current temperature + 1 degree, rounded up
+            async with get_session() as session:
+                await send_command(
+                    session,
+                    self._wunda_ip,
+                    self._wunda_user,
+                    self._wunda_pass,
+                    timeout=self._timeout,
+                    params={
+                        "cmd": 1,
+                        "roomid": self._wunda_id,
+                        "temp": math.ceil(self._attr_current_temperature) + 1,
+                        "locktt": 0,
+                        "time": 0
+                    })
+        elif hvac_mode == HVACMode.OFF:
+            # Set the target temperature to zero
+            async with get_session() as session:
+                await send_command(
+                    session,
+                    self._wunda_ip,
+                    self._wunda_user,
+                    self._wunda_pass,
+                    timeout=self._timeout,
+                    params={
+                        "cmd": 1,
+                        "roomid": self._wunda_id,
+                        "temp": 0.0,
+                        "locktt": 0,
+                        "time": 0
+                    })
+        else:
+            raise NotImplementedError(f"Unsupported HVAC mode {hvac_mode}")
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
@@ -371,26 +361,21 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
             t_preset = float(self.__state[state_key])
 
-            try:
-                async with aiohttp.ClientSession() as session:
-                    await send_command(
-                        session,
-                        self._wunda_ip,
-                        self._wunda_user,
-                        self._wunda_pass,
-                        timeout=self._timeout,
-                        params={
-                            "cmd": 1,
-                            "roomid": self._wunda_id,
-                            "temp": t_preset,
-                            "locktt": 0,
-                            "time": 0,
-                        },
-                    )
-            finally:
-                # Zero-sleep to allow underlying connections to close
-                # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
-                await asyncio.sleep(0)
+            async with get_session() as session:
+                await send_command(
+                    session,
+                    self._wunda_ip,
+                    self._wunda_user,
+                    self._wunda_pass,
+                    timeout=self._timeout,
+                    params={
+                        "cmd": 1,
+                        "roomid": self._wunda_id,
+                        "temp": t_preset,
+                        "locktt": 0,
+                        "time": 0,
+                    },
+                )
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
