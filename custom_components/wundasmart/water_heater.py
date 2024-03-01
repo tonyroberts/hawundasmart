@@ -238,10 +238,16 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         seconds = int((duration.days * 24 * 3600) + math.ceil(duration.seconds))
         if seconds > 0:
             async with get_session() as session:
-                await send_command(session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-                    "cmd": 3,
-                    "hw_boost_time": seconds
-                })
+                await send_command(
+                    session,
+                    self._wunda_ip,
+                    self._wunda_user,
+                    self._wunda_pass,
+                    timeout=self._timeout,
+                    params={
+                        "cmd": 3,
+                        "hw_boost_time": seconds
+                    })
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
@@ -250,10 +256,16 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         seconds = int((duration.days * 24 * 3600) + math.ceil(duration.seconds))
         if seconds > 0:
             async with get_session() as session:
-                await send_command(session, self._wunda_ip, self._wunda_user, self._wunda_pass, params={
-                    "cmd": 3,
-                    "hw_off_time": seconds
-                })
+                await send_command(
+                    session,
+                    self._wunda_ip,
+                    self._wunda_user,
+                    self._wunda_pass,
+                    timeout=self._timeout,
+                    params={
+                        "cmd": 3,
+                        "hw_off_time": seconds
+                    })
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()

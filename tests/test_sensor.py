@@ -5,6 +5,7 @@ from custom_components.wundasmart.water_heater import STATE_AUTO_ON, STATE_AUTO_
 from unittest.mock import patch
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.core import HomeAssistant
+from .utils import deserialize_get_devices_fixture
 
 import json
 
@@ -14,7 +15,7 @@ async def test_sensors(hass: HomeAssistant, config):
     entry.add_to_hass(hass)
 
     # Test setup of sensor entities fetches initial state
-    data = json.loads(load_fixture("test_get_devices1.json"))
+    data = deserialize_get_devices_fixture(load_fixture("test_get_devices1.json"))
     with patch("custom_components.wundasmart.get_devices", return_value=data):
         await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
@@ -44,7 +45,7 @@ async def test_sensors(hass: HomeAssistant, config):
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     assert coordinator
 
-    data = json.loads(load_fixture("test_get_devices2.json"))
+    data = deserialize_get_devices_fixture(load_fixture("test_get_devices2.json"))
     with patch("custom_components.wundasmart.get_devices", return_value=data):
         await coordinator.async_refresh()
         await hass.async_block_till_done()
