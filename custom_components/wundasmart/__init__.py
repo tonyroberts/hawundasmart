@@ -10,11 +10,11 @@ from typing import Final
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, CONF_SCAN_INTERVAL, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import aiohttp_client
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import *
+from .session import get_session
 from .pywundasmart import get_devices
 
 _LOGGER = logging.getLogger(__name__)
@@ -92,17 +92,17 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self):
         attempts = 0
         max_attempts = 5
-        session = aiohttp_client.async_get_clientsession(self._hass)
         while attempts < max_attempts:
             attempts += 1
 
-            result = await get_devices(
-                session,
-                self._wunda_ip,
-                self._wunda_user,
-                self._wunda_pass,
-                timeout=self._timeout
-            )
+            async with get_session() as session:
+                result = await get_devices(
+                    session,
+                    self._wunda_ip,
+                    self._wunda_user,
+                    self._wunda_pass,
+                    timeout=self._timeout
+                )
 
             if result["state"]:
                 break

@@ -5,10 +5,10 @@ from typing import Any
 from homeassistant import config_entries, core, exceptions
 from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_SCAN_INTERVAL
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers import aiohttp_client
 from homeassistant.core import callback
 
 from .const import *
+from .session import get_session
 from .pywundasmart import get_devices
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
@@ -32,12 +32,13 @@ class Hub:
 
     async def authenticate(self):
         """Wundasmart Hub class authenticate."""
-        return await get_devices(
-            aiohttp_client.async_get_clientsession(self._hass),
-            self._wunda_ip,
-            self._wunda_user,
-            self._wunda_pass,
-        )
+        async with get_session() as session:
+            return await get_devices(
+                session,
+                self._wunda_ip,
+                self._wunda_user,
+                self._wunda_pass,
+            )
 
 
 async def validate_input(hass: core.HomeAssistant, wunda_ip, wunda_user, wunda_pass):
