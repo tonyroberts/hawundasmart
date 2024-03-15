@@ -15,7 +15,7 @@ from homeassistant.const import (
     CONF_HOST,
     CONF_USERNAME,
     CONF_PASSWORD,
-    TEMP_CELSIUS,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import aiohttp_client, entity_platform
@@ -124,7 +124,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
 
     _attr_operation_list = list(sorted({ OPERATION_SET_AUTO } | HW_BOOST_OPERATIONS | HW_OFF_OPERATIONS, key=_split_operation))
     _attr_supported_features = WaterHeaterEntityFeature.OPERATION_MODE
-    _attr_temperature_unit = TEMP_CELSIUS
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_translation_key = DOMAIN
 
     def __init__(
