@@ -19,7 +19,7 @@ from homeassistant.const import (
     CONF_HOST,
     CONF_USERNAME,
     CONF_PASSWORD,
-    TEMP_CELSIUS,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -89,7 +89,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     """Representation of an Wundasmart climate."""
 
     _attr_hvac_modes = SUPPORTED_HVAC_MODES
-    _attr_temperature_unit = TEMP_CELSIUS
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_preset_modes = SUPPORTED_PRESET_MODES
     _attr_translation_key = DOMAIN
 
@@ -113,6 +113,10 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._attr_unique_id = device["id"]
         self._attr_type = device["device_type"]
         self._attr_device_info = coordinator.device_info
+        # This flag needs to be set until 2025.1 to prevent warnings about
+        # implicitly supporting the turn_off/turn_on methods.
+        # https://developers.home-assistant.io/blog/2024/01/24/climate-climateentityfeatures-expanded/
+        self._enable_turn_on_off_backwards_compatibility = False
         self._attr_supported_features = (
             ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
         )
