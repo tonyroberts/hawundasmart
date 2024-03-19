@@ -118,7 +118,10 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         # https://developers.home-assistant.io/blog/2024/01/24/climate-climateentityfeatures-expanded/
         self._enable_turn_on_off_backwards_compatibility = False
         self._attr_supported_features = (
-            ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
+            ClimateEntityFeature.TARGET_TEMPERATURE
+            | ClimateEntityFeature.PRESET_MODE
+            | ClimateEntityFeature.TURN_ON
+            | ClimateEntityFeature.TURN_OFF
         )
         self._attr_current_temperature = None
         self._attr_target_temperature = None
@@ -319,7 +322,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                         "time": 0
                     })
         elif hvac_mode == HVACMode.HEAT:
-            # Set the target temperature to the current temperature + 1 degree, rounded up
+            # Set the target temperature to the t_hi preset temp
             async with get_session() as session:
                 await send_command(
                     session,
@@ -330,7 +333,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                     params={
                         "cmd": 1,
                         "roomid": self._wunda_id,
-                        "temp": math.ceil(self._attr_current_temperature) + 1,
+                        "temp": float(self.__state["t_hi"]),
                         "locktt": 0,
                         "time": 0
                     })
@@ -382,3 +385,11 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
+
+    async def async_turn_on(self) -> None:
+        """Turn the entity on."""
+        await self.async_set_hvac_mode(HVACMode.HEAT)
+
+    async def async_turn_off(self) -> None:
+        """Turn the entity off."""
+        await self.async_set_hvac_mode(HVACMode.OFF)
