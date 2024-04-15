@@ -1,4 +1,5 @@
 from .const import *
+import urllib.parse
 import asyncio
 import aiohttp
 import logging
@@ -77,7 +78,11 @@ def parse_syncvalues(data: str):
     hw_version = 0
     for device_state in data.splitlines():
         raw_values = device_state.split(";")
-        device_values = dict(x.split(":") for x in raw_values if ":" in x)
+        device_values = {
+            k: urllib.parse.unquote(v) for k, v in (
+                x.split(":") for x in raw_values if ":" in x
+            )
+        }
 
         # This is set once for the first item and is the hub switch serial number
         device_sn = device_sn or device_values.get("device_sn")

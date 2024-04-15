@@ -11,7 +11,7 @@
                 "hw_hist": "5",
                 "hw_ext_temp": "0"
             },
-            "device_name": "Smart%20HubSwitch",
+            "device_name": "Smart HubSwitch",
             "id": "wunda.0"
         },
         "31": {
@@ -52,7 +52,7 @@
         },
         "121": {
             "device_type": "ROOM",
-            "name": "Test%20Room",
+            "name": "Test Room",
             "id": "ROOM.121",
             "state": {
                 "t_lo": "14.00",

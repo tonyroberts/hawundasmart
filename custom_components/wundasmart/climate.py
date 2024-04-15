@@ -109,7 +109,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._wunda_user = wunda_user
         self._wunda_pass = wunda_pass
         self._wunda_id = wunda_id
-        self._attr_name = device["name"].replace("%20", " ")
+        self._attr_name = device["name"]
         self._attr_unique_id = device["id"]
         self._attr_type = device["device_type"]
         self._attr_device_info = coordinator.device_info

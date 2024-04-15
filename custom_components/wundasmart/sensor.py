@@ -153,7 +153,7 @@ def _trv_get_sensor_name(room, trv, desc: WundaSensorDescription):
     device_id = int(trv["device_id"])
     hw_version = float(trv["hw_version"])
     id_ranges = get_device_id_ranges(hw_version)
-    return room["name"].replace("%20", " ") + f" TRV.{device_id - id_ranges.MIN_TRV_ID} {desc.name}"
+    return room["name"] + f" TRV.{device_id - id_ranges.MIN_TRV_ID} {desc.name}"
 
 
 async def async_setup_entry(
@@ -174,7 +174,7 @@ async def async_setup_entry(
 
     room_sensors = itertools.chain(
         Sensor(wunda_id,
-               room["name"].replace("%20", " ") + " " + desc.name,
+               room["name"] + " " + desc.name,
                coordinator,
                desc) for wunda_id, device, room in rooms
         for desc in ROOM_SENSORS
