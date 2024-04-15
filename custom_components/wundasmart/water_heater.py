@@ -15,6 +15,8 @@ from homeassistant.const import (
     CONF_HOST,
     CONF_USERNAME,
     CONF_PASSWORD,
+    STATE_ON,
+    STATE_OFF,
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, ServiceCall, callback
@@ -24,6 +26,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 import aiohttp
+import time
 
 from . import WundasmartDataUpdateCoordinator
 from .pywundasmart import send_command
@@ -34,12 +37,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SUPPORTED_FEATURES = WaterHeaterEntityFeature.ON_OFF | WaterHeaterEntityFeature.OPERATION_MODE
 
-STATE_AUTO_ON = "auto_on"
-STATE_AUTO_OFF = "auto_off"
-STATE_BOOST_ON = "boost_on"
-STATE_BOOST_OFF = "boost_off"
-
-OPERATION_SET_AUTO = "auto"
+OPERATION_AUTO = "auto"
 OPERATION_BOOST_30 = "boost_30"
 OPERATION_BOOST_60 = "boost_60"
 OPERATION_BOOST_90 = "boost_90"
@@ -47,7 +45,7 @@ OPERATION_BOOST_120 = "boost_120"
 OPERATION_OFF_30 = "off_30"
 OPERATION_OFF_60 = "off_60"
 OPERATION_OFF_90 = "off_90"
-OPERATION_OFF_120 = "off_90"
+OPERATION_OFF_120 = "off_120"
 
 HW_BOOST_OPERATIONS = {
     OPERATION_BOOST_30,
@@ -61,6 +59,13 @@ HW_OFF_OPERATIONS = {
     OPERATION_OFF_60,
     OPERATION_OFF_90,
     OPERATION_OFF_120
+}
+
+# Used when setting operation mode.
+# We can't simply turn the hot water on or off without also specifying a duration.
+OPERATION_MODE_ALIASES = {
+    STATE_ON: OPERATION_BOOST_120,
+    STATE_OFF: OPERATION_OFF_120
 }
 
 
@@ -122,8 +127,13 @@ async def async_setup_entry(
 class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEntity):
     """Representation of an Wundasmart water heater."""
 
-    _attr_operation_list = list(sorted({ OPERATION_SET_AUTO } | HW_BOOST_OPERATIONS | HW_OFF_OPERATIONS, key=_split_operation))
-    _attr_supported_features = WaterHeaterEntityFeature.OPERATION_MODE
+    _attr_operation_list = [
+        STATE_ON,
+        STATE_OFF,
+        OPERATION_AUTO
+    ] + list(sorted(HW_BOOST_OPERATIONS | HW_OFF_OPERATIONS, key=_split_operation))
+
+    _attr_supported_features = WaterHeaterEntityFeature.OPERATION_MODE | WaterHeaterEntityFeature.ON_OFF
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_translation_key = DOMAIN
 
@@ -148,6 +158,8 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         self._attr_type = device["device_type"]
         self._attr_device_info = coordinator.device_info
         self._timeout = timeout
+        self._last_operation_mode = None
+        self._last_operation_mode_timeout = 0
 
         # Update with initial state
         self.__update_state()
@@ -155,27 +167,50 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
     def __update_state(self):
         device = self.coordinator.data.get(self._wunda_id)
         if device is not None and "state" in device and device.get("device_type") == "wunda":
-            state = device["state"]
+            self._attr_current_operation = self.__infer_operation_mode(device["state"])
 
-            try:
-                hw_mode_state = bool(int(state.get("hw_mode_state", 0)))
-            except (ValueError, TypeError):
-                _LOGGER.warning(f"Unexpected hw_mode_state '{state['hw_mode_state']}' for {self._attr_name}")
-                hw_mode_state = False
+    def __infer_operation_mode(self, state):
+        """Return the operation mode from the current device state."""
+        try:
+            # hw_mode_state is 1 if the hot water is on, 0 otherwise.
+            hw_on = bool(int(state.get("hw_mode_state", 0)))
+        except (ValueError, TypeError):
+            _LOGGER.warning(f"Unexpected hw_mode_state '{state['hw_mode_state']}' for {self._attr_name}")
+            hw_on = False
 
-            try:
-                hw_boost_state = bool(int(state.get("hw_boost_state", 0)))
-            except (ValueError, TypeError):
-                _LOGGER.warning(f"Unexpected hw_boost_state '{state['hw_boost_state']}' for {self._attr_name}")
-                hw_boost_state = False
+        try:
+            # hw_boost_state is non-zero when a manual override/boost is active
+            hw_override = bool(int(state.get("hw_boost_state", 0)))
+        except (ValueError, TypeError):
+            _LOGGER.warning(f"Unexpected hw_boost_state '{state['hw_boost_state']}' for {self._attr_name}")
+            hw_override = False
 
-            # - hw_mode_state is 1 if the hot water is on, 0 otherwise.
-            # - hw_boost_state is non-zero when a manual override/boost is active
-            #   1 => manually on, 2 => manually off
-            if hw_mode_state:
-                self._attr_current_operation = STATE_BOOST_ON if hw_boost_state else STATE_AUTO_ON
-            else:
-                self._attr_current_operation = STATE_BOOST_OFF if hw_boost_state else STATE_AUTO_OFF
+        # If an override's been set, get operation mode based on the time left
+        if hw_override:
+            if hw_on and self._last_operation_mode in HW_BOOST_OPERATIONS:
+                minutes_left = (self._last_operation_mode_timeout - time.time()) // 60
+                if minutes_left > 90:
+                    return OPERATION_BOOST_120
+                elif minutes_left > 60:
+                    return OPERATION_BOOST_90
+                elif minutes_left > 30:
+                    return OPERATION_BOOST_60
+                elif minutes_left > 0:
+                    return OPERATION_BOOST_30
+
+            elif not hw_on and self._last_operation_mode in HW_OFF_OPERATIONS:
+                minutes_left = (self._last_operation_mode_timeout - time.time()) // 60
+                if minutes_left > 90:
+                    return OPERATION_OFF_120
+                elif minutes_left > 60:
+                    return OPERATION_OFF_90
+                elif minutes_left > 30:
+                    return OPERATION_OFF_60
+                elif minutes_left > 0:
+                    return OPERATION_OFF_30
+
+        # Otherwise just return the actual state as on or off
+        return STATE_ON if hw_on else STATE_OFF
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -189,6 +224,8 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         self._handle_coordinator_update()
 
     async def async_set_operation_mode(self, operation_mode: str) -> None:
+        duration = 0
+        operation_mode = OPERATION_MODE_ALIASES.get(operation_mode, operation_mode)
         if operation_mode:
             if operation_mode in HW_OFF_OPERATIONS:
                 _, duration = _split_operation(operation_mode)
@@ -216,7 +253,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
                             "cmd": 3,
                             "hw_boost_time": duration
                         })
-            elif operation_mode == OPERATION_SET_AUTO:
+            elif operation_mode == OPERATION_AUTO:
                 async with get_session() as session:
                     await send_command(
                         session,
@@ -230,6 +267,10 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
                         })
             else:
                 raise NotImplementedError(f"Unsupported operation mode {operation_mode}")
+
+        # Remember the last operation mode that was set to use when getting the current operation mode.
+        self._last_operation_mode = operation_mode
+        self._last_operation_mode_timeout = time.time() + duration
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
