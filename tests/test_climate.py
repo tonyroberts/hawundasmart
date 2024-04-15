@@ -173,3 +173,44 @@ async def test_set_presets(hass: HomeAssistant, config):
         assert mock.call_args.kwargs["params"]
         assert mock.call_args.kwargs["params"]["roomid"] == 121
         assert mock.call_args.kwargs["params"]["temp"] == 21.0
+
+
+async def test_turn_on_off(hass: HomeAssistant, config):
+    entry = MockConfigEntry(domain=DOMAIN, data=config)
+    entry.add_to_hass(hass)
+
+    data = deserialize_get_devices_fixture(load_fixture("test_manual_off.json"))
+    with patch("custom_components.wundasmart.get_devices", return_value=data):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("climate.test_room")
+
+        assert state
+        assert state.state == HVACAction.OFF
+        assert state.attributes["hvac_action"] == HVACAction.OFF
+        temp = state.attributes["temperature"]
+
+        with patch("custom_components.wundasmart.climate.send_command", return_value=None) as mock:
+            await hass.services.async_call("climate", "turn_on", {
+                "entity_id": "climate.test_room"
+            })
+            await hass.async_block_till_done()
+
+            # Check send_command was called correctly
+            assert mock.call_count == 1
+            assert mock.call_args.kwargs["params"]
+            assert mock.call_args.kwargs["params"]["roomid"] == 121
+            assert mock.call_args.kwargs["params"]["temp"] == 21
+
+        with patch("custom_components.wundasmart.climate.send_command", return_value=None) as mock:
+            await hass.services.async_call("climate", "turn_off", {
+                "entity_id": "climate.test_room"
+            })
+            await hass.async_block_till_done()
+
+            # Check send_command was called correctly
+            assert mock.call_count == 1
+            assert mock.call_args.kwargs["params"]
+            assert mock.call_args.kwargs["params"]["roomid"] == 121
+            assert mock.call_args.kwargs["params"]["temp"] == 0

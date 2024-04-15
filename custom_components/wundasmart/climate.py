@@ -19,14 +19,14 @@ from homeassistant.const import (
     CONF_HOST,
     CONF_USERNAME,
     CONF_PASSWORD,
-    TEMP_CELSIUS,
+    UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import WundasmartDataUpdateCoordinator
-from .pywundasmart import send_command
+from .pywundasmart import send_command, get_room_id_from_device
 from .session import get_session
 from .const import *
 
@@ -89,7 +89,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     """Representation of an Wundasmart climate."""
 
     _attr_hvac_modes = SUPPORTED_HVAC_MODES
-    _attr_temperature_unit = TEMP_CELSIUS
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_preset_modes = SUPPORTED_PRESET_MODES
     _attr_translation_key = DOMAIN
 
@@ -109,12 +109,19 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._wunda_user = wunda_user
         self._wunda_pass = wunda_pass
         self._wunda_id = wunda_id
-        self._attr_name = device["name"].replace("%20", " ")
+        self._attr_name = device["name"]
         self._attr_unique_id = device["id"]
         self._attr_type = device["device_type"]
         self._attr_device_info = coordinator.device_info
+        # This flag needs to be set until 2025.1 to prevent warnings about
+        # implicitly supporting the turn_off/turn_on methods.
+        # https://developers.home-assistant.io/blog/2024/01/24/climate-climateentityfeatures-expanded/
+        self._enable_turn_on_off_backwards_compatibility = False
         self._attr_supported_features = (
-            ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE
+            ClimateEntityFeature.TARGET_TEMPERATURE
+            | ClimateEntityFeature.PRESET_MODE
+            | ClimateEntityFeature.TURN_ON
+            | ClimateEntityFeature.TURN_OFF
         )
         self._attr_current_temperature = None
         self._attr_target_temperature = None
@@ -140,12 +147,11 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
     @property
     def __trvs(self):
-        for trv in (self.coordinator.data.get(x, {}) for x in range(MIN_TRV_ID, MAX_TRV_ID+1)):
-            room_id = trv.get("state", {}).get("room_id", None)
-            if room_id is not None \
-            and (isinstance(room_id, int) or (isinstance(room_id, str) and room_id.isdigit())) \
-            and (int(room_id) + MIN_ROOM_ID) == self._wunda_id:
-                yield trv
+        for device in self.coordinator.data.values():
+            if device.get("device_type") == "TRV":
+                room_id = get_room_id_from_device(device)
+                if int(room_id) == int(self._wunda_id):
+                    yield device
 
     def __set_current_temperature(self):
         """Set the current temperature from the coordinator data."""
@@ -280,7 +286,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
     async def async_set_temperature(self, temperature, **kwargs):
         # Set the new target temperature
-        async with get_session() as session:
+        async with get_session(self._wunda_ip) as session:
             await send_command(
                 session,
                 self._wunda_ip,
@@ -301,7 +307,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     async def async_set_hvac_mode(self, hvac_mode: HVACMode):
         if hvac_mode == HVACMode.AUTO:
             # Set to programmed mode
-            async with get_session() as session:
+            async with get_session(self._wunda_ip) as session:
                 await send_command(
                     session,
                     self._wunda_ip,
@@ -316,8 +322,8 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                         "time": 0
                     })
         elif hvac_mode == HVACMode.HEAT:
-            # Set the target temperature to the current temperature + 1 degree, rounded up
-            async with get_session() as session:
+            # Set the target temperature to the t_hi preset temp
+            async with get_session(self._wunda_ip) as session:
                 await send_command(
                     session,
                     self._wunda_ip,
@@ -327,13 +333,13 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                     params={
                         "cmd": 1,
                         "roomid": self._wunda_id,
-                        "temp": math.ceil(self._attr_current_temperature) + 1,
+                        "temp": float(self.__state["t_hi"]),
                         "locktt": 0,
                         "time": 0
                     })
         elif hvac_mode == HVACMode.OFF:
             # Set the target temperature to zero
-            async with get_session() as session:
+            async with get_session(self._wunda_ip) as session:
                 await send_command(
                     session,
                     self._wunda_ip,
@@ -361,7 +367,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
             t_preset = float(self.__state[state_key])
 
-            async with get_session() as session:
+            async with get_session(self._wunda_ip) as session:
                 await send_command(
                     session,
                     self._wunda_ip,
@@ -379,3 +385,11 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
         # Fetch the updated state
         await self.coordinator.async_request_refresh()
+
+    async def async_turn_on(self) -> None:
+        """Turn the entity on."""
+        await self.async_set_hvac_mode(HVACMode.HEAT)
+
+    async def async_turn_off(self) -> None:
+        """Turn the entity off."""
+        await self.async_set_hvac_mode(HVACMode.OFF)

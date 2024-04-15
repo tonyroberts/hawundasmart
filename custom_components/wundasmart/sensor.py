@@ -20,6 +20,7 @@ from homeassistant.const import (
 )
 
 from . import WundasmartDataUpdateCoordinator
+from .pywundasmart import get_room_id_from_device, get_device_id_ranges
 from .const import *
 
 
@@ -134,19 +135,25 @@ TRV_SENSORS: list[WundaSensorDescription] = [
 ]
 
 
-def _sensor_get_room(coordinator: WundasmartDataUpdateCoordinator, sensor_id):
+def _sensor_get_room(coordinator: WundasmartDataUpdateCoordinator, device):
     """Return a room device dict for sensor"""
-    room_id = int(sensor_id) - MIN_SENSOR_ID + MIN_ROOM_ID
-    return coordinator.data.get(str(room_id) if isinstance(sensor_id, str) else room_id)
+    room_id = get_room_id_from_device(device)
+    return coordinator.data.get(room_id)
 
 
-def _trv_get_room(coordinator: WundasmartDataUpdateCoordinator, trv_id):
+def _trv_get_room(coordinator: WundasmartDataUpdateCoordinator, device):
     """Return a room device dict for trv"""
-    trv = coordinator.data.get(trv_id, {})
-    room_idx = trv.get("state", {}).get("room_id")
-    if room_idx is not None:
-        room_id = int(room_idx) + MIN_ROOM_ID
-        return coordinator.data.get(str(room_id) if isinstance(trv_id, str) else room_id)
+    room_id = get_room_id_from_device(device)
+    if room_id is not None:
+        return coordinator.data.get(room_id)
+
+
+def _trv_get_sensor_name(room, trv, desc: WundaSensorDescription):
+    """Return a human readable name for a TRV device"""
+    device_id = int(trv["device_id"])
+    hw_version = float(trv["hw_version"])
+    id_ranges = get_device_id_ranges(hw_version)
+    return room["name"] + f" TRV.{device_id - id_ranges.MIN_TRV_ID} {desc.name}"
 
 
 async def async_setup_entry(
@@ -161,29 +168,29 @@ async def async_setup_entry(
         (wunda_id, device, room) for wunda_id, device
         in coordinator.data.items()
         if device.get("device_type") == "SENSOR"
-        and (room := _sensor_get_room(coordinator, wunda_id)) is not None
+        and (room := _sensor_get_room(coordinator, device)) is not None
         and room.get("name") is not None
     )
 
     room_sensors = itertools.chain(
         Sensor(wunda_id,
-               room["name"].replace("%20", " ") + " " + desc.name,
+               room["name"] + " " + desc.name,
                coordinator,
                desc) for wunda_id, device, room in rooms
         for desc in ROOM_SENSORS
     )
 
-    trvs = (
+    trvs = list((
         (wunda_id, device, room) for wunda_id, device
         in coordinator.data.items()
         if device.get("device_type") == "TRV"
-        and (room := _trv_get_room(coordinator, wunda_id)) is not None
+        and (room := _trv_get_room(coordinator, device)) is not None
         and room.get("name") is not None
-    )
+    ))
 
     trv_sensors = itertools.chain(
         Sensor(wunda_id,
-               room["name"].replace("%20", " ") + f" TRV.{int(wunda_id)-MIN_TRV_ID} {desc.name}",
+               _trv_get_sensor_name(room, device, desc),
                coordinator,
                desc) for wunda_id, device, room in trvs
         for desc in TRV_SENSORS

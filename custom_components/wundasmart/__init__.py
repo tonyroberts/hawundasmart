@@ -95,7 +95,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
         while attempts < max_attempts:
             attempts += 1
 
-            async with get_session() as session:
+            async with get_session(self._wunda_ip) as session:
                 result = await get_devices(
                     session,
                     self._wunda_ip,
@@ -132,7 +132,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
             # Get the hub switch serial number if we don't have it already
             if self._device_sn is None and "device_sn" in device:
                 self._device_sn = device["device_sn"]
-                self._device_name = device.get("name", "Smart HubSwitch").replace("%20", " ")
+                self._device_name = device.get("name", "Smart HubSwitch")
                 self._sw_version = device.get("device_soft_version", "unknown")
                 self._hw_version = device.get("device_hard_version", "unknown")
 
