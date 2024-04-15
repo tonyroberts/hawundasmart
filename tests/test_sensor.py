@@ -1,7 +1,6 @@
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.common import load_fixture
 from custom_components.wundasmart.const import DOMAIN
-from custom_components.wundasmart.water_heater import STATE_AUTO_ON, STATE_AUTO_OFF, STATE_BOOST_ON
 from unittest.mock import patch
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.core import HomeAssistant
