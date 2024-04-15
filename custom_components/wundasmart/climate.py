@@ -286,7 +286,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
     async def async_set_temperature(self, temperature, **kwargs):
         # Set the new target temperature
-        async with get_session() as session:
+        async with get_session(self._wunda_ip) as session:
             await send_command(
                 session,
                 self._wunda_ip,
@@ -307,7 +307,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     async def async_set_hvac_mode(self, hvac_mode: HVACMode):
         if hvac_mode == HVACMode.AUTO:
             # Set to programmed mode
-            async with get_session() as session:
+            async with get_session(self._wunda_ip) as session:
                 await send_command(
                     session,
                     self._wunda_ip,
@@ -323,7 +323,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                     })
         elif hvac_mode == HVACMode.HEAT:
             # Set the target temperature to the t_hi preset temp
-            async with get_session() as session:
+            async with get_session(self._wunda_ip) as session:
                 await send_command(
                     session,
                     self._wunda_ip,
@@ -339,7 +339,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                     })
         elif hvac_mode == HVACMode.OFF:
             # Set the target temperature to zero
-            async with get_session() as session:
+            async with get_session(self._wunda_ip) as session:
                 await send_command(
                     session,
                     self._wunda_ip,
@@ -367,7 +367,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
 
             t_preset = float(self.__state[state_key])
 
-            async with get_session() as session:
+            async with get_session(self._wunda_ip) as session:
                 await send_command(
                     session,
                     self._wunda_ip,
