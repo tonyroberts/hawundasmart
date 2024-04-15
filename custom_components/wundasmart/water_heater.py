@@ -229,7 +229,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
         if operation_mode:
             if operation_mode in HW_OFF_OPERATIONS:
                 _, duration = _split_operation(operation_mode)
-                async with get_session() as session:
+                async with get_session(self._wunda_ip) as session:
                     await send_command(
                         session,
                         self._wunda_ip,
@@ -242,7 +242,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
                         })
             elif operation_mode in HW_BOOST_OPERATIONS:
                 _, duration = _split_operation(operation_mode)
-                async with get_session() as session:
+                async with get_session(self._wunda_ip) as session:
                     await send_command(
                         session,
                         self._wunda_ip,
@@ -254,7 +254,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
                             "hw_boost_time": duration
                         })
             elif operation_mode == OPERATION_AUTO:
-                async with get_session() as session:
+                async with get_session(self._wunda_ip) as session:
                     await send_command(
                         session,
                         self._wunda_ip,
@@ -278,7 +278,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
     async def async_set_boost(self, duration: timedelta):
         seconds = int((duration.days * 24 * 3600) + math.ceil(duration.seconds))
         if seconds > 0:
-            async with get_session() as session:
+            async with get_session(self._wunda_ip) as session:
                 await send_command(
                     session,
                     self._wunda_ip,
@@ -296,7 +296,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], WaterHeaterEnti
     async def async_set_off(self, duration: timedelta):
         seconds = int((duration.days * 24 * 3600) + math.ceil(duration.seconds))
         if seconds > 0:
-            async with get_session() as session:
+            async with get_session(self._wunda_ip) as session:
                 await send_command(
                     session,
                     self._wunda_ip,

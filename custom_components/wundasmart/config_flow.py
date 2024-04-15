@@ -32,7 +32,7 @@ class Hub:
 
     async def authenticate(self):
         """Wundasmart Hub class authenticate."""
-        async with get_session() as session:
+        async with get_session(self._wunda_ip) as session:
             return await get_devices(
                 session,
                 self._wunda_ip,

@@ -95,7 +95,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
         while attempts < max_attempts:
             attempts += 1
 
-            async with get_session() as session:
+            async with get_session(self._wunda_ip) as session:
                 result = await get_devices(
                     session,
                     self._wunda_ip,

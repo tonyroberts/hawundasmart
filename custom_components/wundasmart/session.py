@@ -5,6 +5,17 @@ import asyncio
 import weakref
 import socket
 
+# Limit the number of sessions that can be in use at any one time
+_semaphores = {}
+
+def _get_semaphore(wunda_ip):
+    """Return a semaphore object to restrict making concurrent requests to the Wundasmart hub switch."""
+    semaphore = _semaphores.get(wunda_ip)
+    if semaphore is None:
+        semaphore = asyncio.Semaphore(value=1)
+        _semaphores[wunda_ip] = semaphore
+    return semaphore
+
 
 class ResponseHandler(aiohttp.client_proto.ResponseHandler):
     """Patched ResponseHandler that calls socket.shutdown
@@ -49,13 +60,14 @@ class TCPConnector(aiohttp.TCPConnector):
 
 
 @asynccontextmanager
-async def get_session():
-    connector = TCPConnector(force_close=True, limit=1)
-    try:
-        async with aiohttp.ClientSession(connector=connector) as session:
-            yield session
-    finally:
-        await connector.close()
-        # Zero-sleep to allow underlying connections to close
-        # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
-        await asyncio.sleep(0)
+async def get_session(wunda_ip=None):
+    async with _get_semaphore(wunda_ip):
+        connector = TCPConnector(force_close=True, limit=1)
+        try:
+            async with aiohttp.ClientSession(connector=connector) as session:
+                yield session
+        finally:
+            await connector.close()
+            # Zero-sleep to allow underlying connections to close
+            # https://docs.aiohttp.org/en/stable/client_advanced.html#graceful-shutdown
+            await asyncio.sleep(0)
