@@ -48,7 +48,7 @@ One example you can use is the iPhone app `HTTP Traffic Capture`. This installs 
 
 This integration is still in development but has been used with the following WundaSmart devices:
 
-- WundaSmart Hub Switch
+- WundaSmart Hub Switch v4
 - WundaSmart Underfloop Heating Connection Box
 - WundaSmart Radiator Head
 - WundaSmart Room Thermostat
