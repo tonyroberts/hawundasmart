@@ -69,7 +69,7 @@ ROOM_SENSORS: list[WundaSensorDescription] = [
         name="Battery Level",
         icon=lambda x: icon_for_battery_level(_number_or_none(x)),
         native_unit_of_measurement=PERCENTAGE,
-        device_class=SensorDeviceClass.HUMIDITY,
+        device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     WundaSensorDescription(
@@ -77,7 +77,7 @@ ROOM_SENSORS: list[WundaSensorDescription] = [
         name="Signal Level",
         icon=lambda x: icon_for_signal_level(_number_or_none(x)),
         native_unit_of_measurement=PERCENTAGE,
-        device_class=SensorDeviceClass.HUMIDITY,
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         state_class=SensorStateClass.MEASUREMENT,
     )
 ]
@@ -96,7 +96,7 @@ TRV_SENSORS: list[WundaSensorDescription] = [
         name="Battery Level",
         icon=lambda x: icon_for_battery_level(_number_or_none(x)),
         native_unit_of_measurement=PERCENTAGE,
-        device_class=SensorDeviceClass.HUMIDITY,
+        device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     WundaSensorDescription(
@@ -104,7 +104,7 @@ TRV_SENSORS: list[WundaSensorDescription] = [
         name="Signal Level",
         icon=lambda x: icon_for_signal_level(_number_or_none(x)),
         native_unit_of_measurement=PERCENTAGE,
-        device_class=SensorDeviceClass.HUMIDITY,
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         state_class=SensorStateClass.MEASUREMENT,
     ),
     WundaSensorDescription(
