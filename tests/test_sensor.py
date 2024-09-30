@@ -41,6 +41,18 @@ async def test_sensors(hass: HomeAssistant, config):
         assert ext_temp_state
         assert ext_temp_state.state == "18.0"
 
+        t_lo_state = hass.states.get("sensor.test_room_reduced_preset")
+        assert t_lo_state
+        assert t_lo_state.state == "14.00"
+
+        t_norm_state = hass.states.get("sensor.test_room_eco_preset")
+        assert t_norm_state
+        assert t_norm_state.state == "19.00"
+
+        t_hi_state = hass.states.get("sensor.test_room_comfort_preset")
+        assert t_hi_state
+        assert t_hi_state.state == "21.00"
+
     coordinator: DataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
     assert coordinator
 
