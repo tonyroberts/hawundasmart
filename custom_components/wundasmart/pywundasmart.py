@@ -1,3 +1,4 @@
+import xml.etree.ElementTree as ET
 from .const import *
 import urllib.parse
 import asyncio
@@ -177,3 +178,42 @@ async def send_command(session: aiohttp.ClientSession,
 
     _LOGGER.warning(f"Failed to send command to Wundasmart : {status=}")
     raise RuntimeError(f"Failed to send command: {params=}; {status=}")
+
+
+async def set_register(session: aiohttp.ClientSession, 
+                       wunda_ip: str,
+                       wunda_user: str, 
+                       wunda_pass: str,
+                       device_id: str,
+                       register_id: str,
+                       value: str,
+                       timeout: int = 3,
+                       retries: int = 5,
+                       retry_delay: float = 0.5):
+    """Send a setregister command to the wunda smart hub controller"""
+    wunda_url = f"http://{wunda_ip}/setregister.cgi?{device_id}@{register_id}={value}"
+
+    attempts = 0
+    while attempts < retries:
+        attempts += 1
+        async with session.get(wunda_url,
+                               auth=aiohttp.BasicAuth(wunda_user, wunda_pass), 
+                               timeout=timeout) as resp:
+            text = None
+            status = resp.status
+            if status == 200:
+                text = await resp.text()
+                root = ET.fromstring(text)
+                status = root.attrib.get('status')
+                if status == "ok":
+                    return status
+
+        if attempts < retries:
+            _LOGGER.warning("Call to setregister.cgi failed with status '%(status)s'%(text)s", {
+                "status": status,
+                "text": f"\n{text}" if text is not None else ""
+            })
+            await asyncio.sleep(retry_delay)
+
+    _LOGGER.warning(f"Failed to set register : {status=}")
+    raise RuntimeError(f"Failed to set register: {device_id=}; {register_id=}; {value=}")

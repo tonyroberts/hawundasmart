@@ -166,6 +166,30 @@ async def test_set_presets(hass: HomeAssistant, config):
         assert mock.call_args.kwargs["params"]["temp"] == 21.0
 
 
+async def test_set_preset_temps(hass: HomeAssistant, config):
+    entry = MockConfigEntry(domain=DOMAIN, data=config)
+    entry.add_to_hass(hass)
+
+    data = deserialize_get_devices_fixture(load_fixture("test_set_presets.json"))
+    with patch("custom_components.wundasmart.get_devices", return_value=data), \
+            patch("custom_components.wundasmart.climate.send_command", return_value=None) as mock:
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        with patch("custom_components.wundasmart.climate.set_register", return_value=None) as mock:
+            await hass.services.async_call("wundasmart", "set_preset_temperature", {
+                "entity_id": "climate.test_room",
+                "preset": "eco",
+                "temperature": 10
+            })
+            await hass.async_block_till_done()
+
+            # Check send_command was called correctly
+            assert mock.call_count == 1
+            assert mock.call_args.kwargs["device_id"] == 121
+            assert mock.call_args.kwargs["register_id"] == "t_norm"
+            assert mock.call_args.kwargs["value"] == 10
+
 async def test_turn_on_off(hass: HomeAssistant, config):
     entry = MockConfigEntry(domain=DOMAIN, data=config)
     entry.add_to_hass(hass)
