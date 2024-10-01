@@ -5,6 +5,7 @@ import math
 import logging
 import aiohttp
 from typing import Any
+import voluptuous as vol
 
 from homeassistant.components.climate import (
     ClimateEntity,
@@ -21,16 +22,19 @@ from homeassistant.const import (
     CONF_PASSWORD,
     UnitOfTemperature,
 )
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback, async_get_current_platform
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers import config_validation as cv
 
 from . import WundasmartDataUpdateCoordinator
-from .pywundasmart import send_command, get_room_id_from_device
+from .pywundasmart import send_command, set_register, get_room_id_from_device
 from .session import get_session
 from .const import *
 
 _LOGGER = logging.getLogger(__name__)
+
+SERVICE_SET_PRESET_TEMPERATURE = "set_preset_temperature"
 
 SUPPORTED_HVAC_MODES = [
     HVACMode.OFF,
@@ -83,6 +87,17 @@ async def async_setup_entry(
             timeout
         )
         for wunda_id, device in rooms))
+
+    platform = async_get_current_platform()
+
+    platform.async_register_entity_service(
+        SERVICE_SET_PRESET_TEMPERATURE,
+        {
+            vol.Required('preset'): vol.In(SUPPORTED_PRESET_MODES, msg="invalid preset"),
+            vol.Required('temperature'): cv.Number
+        },
+        Device.async_set_preset_temperature,
+    )
 
 
 class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
@@ -393,3 +408,22 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
     async def async_turn_off(self) -> None:
         """Turn the entity off."""
         await self.async_set_hvac_mode(HVACMode.OFF)
+
+    async def async_set_preset_temperature(self, service_data: ServiceCall) -> None:
+        """Change one of the preset temperatures."""
+        preset = service_data.data["preset"]
+        temperature = service_data.data["temperature"]
+
+        async with get_session(self._wunda_ip) as session:
+            await set_register(
+                session,
+                self._wunda_ip,
+                self._wunda_user,
+                self._wunda_pass,
+                timeout=self._timeout,
+                device_id=self._wunda_id,
+                register_id=PRESET_MODE_STATE_KEYS[preset],
+                value=temperature)
+
+        # Fetch the updated state
+        await self.coordinator.async_request_refresh()

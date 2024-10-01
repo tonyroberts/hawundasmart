@@ -1,6 +1,8 @@
 """Support for WundaSmart sensors."""
 from __future__ import annotations
 from dataclasses import dataclass, asdict
+from collections import defaultdict
+from typing import Literal
 import itertools
 
 from homeassistant.core import HomeAssistant, callback
@@ -35,11 +37,46 @@ def _number_or_none(x):
 class WundaSensorDescription(SensorEntityDescription):
     available: bool | callable = True
     default: float | None = None
+    device_type: Literal["ROOM"] | Literal["TRV"] | Literal["SENSOR"] | None = None
 
 
-ROOM_SENSORS: list[WundaSensorDescription] = [
+SENSORS: list[WundaSensorDescription] = [
+    WundaSensorDescription(
+        key="t_lo",
+        device_type="ROOM",
+        name="Reduced Preset",
+        icon="mdi:thermometer",
+        available=lambda state: float(state.get("t_lo", 0)) > 0,
+        default=0.0,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    WundaSensorDescription(
+        key="t_norm",
+        device_type="ROOM",
+        name="Eco Preset",
+        icon="mdi:thermometer",
+        available=lambda state: float(state.get("t_norm", 0)) > 0,
+        default=0.0,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
+    WundaSensorDescription(
+        key="t_hi",
+        device_type="ROOM",
+        name="Comfort Preset",
+        icon="mdi:thermometer",
+        available=lambda state: float(state.get("t_hi", 0)) > 0,
+        default=0.0,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+    ),
     WundaSensorDescription(
         key="temp",
+        device_type="SENSOR",
         name="Temperature",
         icon="mdi:thermometer",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
@@ -48,6 +85,7 @@ ROOM_SENSORS: list[WundaSensorDescription] = [
     ),
     WundaSensorDescription(
         key="rh",
+        device_type="SENSOR",
         name="Humidity",
         icon="mdi:water-percent",
         native_unit_of_measurement=PERCENTAGE,
@@ -56,6 +94,7 @@ ROOM_SENSORS: list[WundaSensorDescription] = [
     ),
     WundaSensorDescription(
         key="temp_ext",
+        device_type="SENSOR",
         name="External Probe Temperature",
         icon="mdi:thermometer",
         available=lambda state: bool(int(state.get("ext", 0))),
@@ -66,6 +105,7 @@ ROOM_SENSORS: list[WundaSensorDescription] = [
     ),
     WundaSensorDescription(
         key="bat",
+        device_type="SENSOR",
         name="Battery Level",
         icon=lambda x: icon_for_battery_level(_number_or_none(x)),
         native_unit_of_measurement=PERCENTAGE,
@@ -74,17 +114,16 @@ ROOM_SENSORS: list[WundaSensorDescription] = [
     ),
     WundaSensorDescription(
         key="sig",
+        device_type="SENSOR",
         name="Signal Level",
         icon=lambda x: icon_for_signal_level(_number_or_none(x)),
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         state_class=SensorStateClass.MEASUREMENT,
-    )
-]
-
-TRV_SENSORS: list[WundaSensorDescription] = [
+    ),
     WundaSensorDescription(
         key="vtemp",
+        device_type="TRV",
         name="Temperature",
         icon="mdi:thermometer",
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
@@ -93,6 +132,7 @@ TRV_SENSORS: list[WundaSensorDescription] = [
     ),
     WundaSensorDescription(
         key="bat",
+        device_type="TRV",
         name="Battery Level",
         icon=lambda x: icon_for_battery_level(_number_or_none(x)),
         native_unit_of_measurement=PERCENTAGE,
@@ -101,6 +141,7 @@ TRV_SENSORS: list[WundaSensorDescription] = [
     ),
     WundaSensorDescription(
         key="sig",
+        device_type="TRV",
         name="Signal Level",
         icon=lambda x: icon_for_signal_level(_number_or_none(x)),
         native_unit_of_measurement=PERCENTAGE,
@@ -109,30 +150,46 @@ TRV_SENSORS: list[WundaSensorDescription] = [
     ),
     WundaSensorDescription(
         key="vpos",
+        device_type="TRV",
         name="Position",
         state_class=SensorStateClass.MEASUREMENT,
     ),
     WundaSensorDescription(
         key="vpos_min",
+        device_type="TRV",
         name="Position Min",
         state_class=SensorStateClass.MEASUREMENT,
     ),
     WundaSensorDescription(
         key="vpos_range",
+        device_type="TRV",
         name="Position Range",
         state_class=SensorStateClass.MEASUREMENT,
     ),
     WundaSensorDescription(
         key="downforce",
+        device_type="TRV",
         name="Downforce",
         state_class=SensorStateClass.MEASUREMENT,
     ),
     WundaSensorDescription(
         key="trv_range",
+        device_type="TRV",
         name="TRV Range",
         state_class=SensorStateClass.MEASUREMENT,
     )
 ]
+
+
+def _device_get_room(coordinator: WundasmartDataUpdateCoordinator, device):
+    device_type = device.get("device_type")
+    if device_type == "ROOM":
+        return device
+    elif device_type == "SENSOR":
+        return _sensor_get_room(coordinator, device)
+    elif device_type == "TRV":
+        return _trv_get_room(coordinator, device)
+    return None
 
 
 def _sensor_get_room(coordinator: WundasmartDataUpdateCoordinator, device):
@@ -164,39 +221,48 @@ async def async_setup_entry(
     """Set up the sensors from config entries."""
     coordinator: WundasmartDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    rooms = (
-        (wunda_id, device, room) for wunda_id, device
-        in coordinator.data.items()
-        if device.get("device_type") == "SENSOR"
-        and (room := _sensor_get_room(coordinator, device)) is not None
-        and room.get("name") is not None
-    )
+    devices_by_type = defaultdict(lambda: [])
+    for wunda_id, device in coordinator.data.items():
+        device_type = device.get("device_type")
+        if device_type is not None:
+            room = _device_get_room(coordinator, device)
+            if room is not None and room.get("name") is not None:
+                devices_by_type[device_type].append((wunda_id, device, room))
 
-    room_sensors = itertools.chain(
-        Sensor(wunda_id,
+    descriptions_by_type = defaultdict(lambda: [])
+    for desc in SENSORS:
+        descriptions_by_type[desc.device_type].append(desc)
+
+    sensors = itertools.chain(
+        (
+            Sensor(wunda_id,
                room["name"] + " " + desc.name,
                coordinator,
-               desc) for wunda_id, device, room in rooms
-        for desc in ROOM_SENSORS
-    )
+               desc)
+                for wunda_id, device, room in devices_by_type["ROOM"]
+                for desc in descriptions_by_type["ROOM"]
+        ),
 
-    trvs = list((
-        (wunda_id, device, room) for wunda_id, device
-        in coordinator.data.items()
-        if device.get("device_type") == "TRV"
-        and (room := _trv_get_room(coordinator, device)) is not None
-        and room.get("name") is not None
-    ))
+        (
+            Sensor(wunda_id,
+               room["name"] + " " + desc.name,
+               coordinator,
+               desc)
+                for wunda_id, device, room in devices_by_type["SENSOR"]
+                for desc in descriptions_by_type["SENSOR"]
+        ),
 
-    trv_sensors = itertools.chain(
-        Sensor(wunda_id,
+        (
+            Sensor(wunda_id,
                _trv_get_sensor_name(room, device, desc),
                coordinator,
-               desc) for wunda_id, device, room in trvs
-        for desc in TRV_SENSORS
+               desc)
+                for wunda_id, device, room in devices_by_type["TRV"]
+                for desc in descriptions_by_type["TRV"]
+        )
     )
 
-    async_add_entities(itertools.chain(room_sensors, trv_sensors), update_before_add=True)
+    async_add_entities(sensors, update_before_add=True)
 
 
 class Sensor(CoordinatorEntity[WundasmartDataUpdateCoordinator], SensorEntity):
