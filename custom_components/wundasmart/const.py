@@ -1,5 +1,9 @@
 """Constants for the wundasmart integration."""
 from dataclasses import dataclass
+from homeassistant.components.climate import (
+    PRESET_ECO,
+    PRESET_COMFORT
+)
 
 DOMAIN = "wundasmart"
 
@@ -9,7 +13,6 @@ CONF_READ_TIMEOUT = "read_timeout"
 DEFAULT_SCAN_INTERVAL = 300
 DEFAULT_CONNECT_TIMEOUT = 5
 DEFAULT_READ_TIMEOUT = 5
-
 
 @dataclass
 class DeviceIdRanges:

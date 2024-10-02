@@ -32,3 +32,32 @@ hw_off:
       default: '00:30:00'
       selector:
         time:
+set_preset_temperature:
+  name: Set Preset Temperature
+  description: Sets one of the temperature presets.
+  target:
+    entity:
+      integration: wundasmart
+      domain: climate
+  fields:
+    preset:
+      name: Preset
+      description: Named preset to set temperature of.
+      required: true
+      selector:
+          select:
+            translation_key: "preset"
+            options:
+              - label: "Reduced"
+                value: "reduced"
+              - label: "Eco"
+                value: "eco"
+              - label: "Comfort"
+                value: "comfort"
+    temperature:
+      name: "Temperature"
+      description: "Temperature to set for the preset."
+      required: true
+      selector:
+        number:
+          min: 0
