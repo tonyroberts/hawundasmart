@@ -61,3 +61,4 @@ set_preset_temperature:
       selector:
         number:
           min: 0
+          max: 100
