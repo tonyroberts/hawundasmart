@@ -34,7 +34,7 @@ async def test_sensors(hass: HomeAssistant, config):
 
         trv_signal_state = hass.states.get("sensor.test_room_trv_0_signal_level")
         assert trv_signal_state
-        assert trv_signal_state.state == "88"
+        assert trv_signal_state.state == "-50.0"
         assert trv_signal_state.attributes["icon"] == "mdi:signal-cellular-3"
 
         ext_temp_state = hass.states.get("sensor.test_room_external_probe_temperature")
@@ -69,7 +69,17 @@ async def test_sensors(hass: HomeAssistant, config):
         assert rh_state
         assert rh_state.state == "50.0"
 
+        sig_state = hass.states.get("sensor.test_room_signal_level")
+        assert sig_state
+        assert sig_state.state == "-95.0"
+        assert sig_state.attributes["icon"] == "mdi:signal-cellular-1"
+
         trv_battery_state = hass.states.get("sensor.test_room_trv_0_battery_level")
         assert trv_battery_state
         assert trv_battery_state.state == "50"
         assert trv_battery_state.attributes["icon"] == "mdi:battery-50"
+
+        trv_signal_state = hass.states.get("sensor.test_room_trv_0_signal_level")
+        assert trv_signal_state
+        assert trv_signal_state.state == "-75.0"
+        assert trv_signal_state.attributes["icon"] == "mdi:signal-cellular-2"

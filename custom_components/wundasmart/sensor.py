@@ -18,6 +18,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import (
     PERCENTAGE,
+    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
     UnitOfTemperature
 )
 
@@ -38,7 +39,7 @@ class WundaSensorDescription(SensorEntityDescription):
     available: bool | callable = True
     default: float | None = None
     device_type: Literal["ROOM"] | Literal["TRV"] | Literal["SENSOR"] | None = None
-
+    value_fn: callable | None = None
 
 SENSORS: list[WundaSensorDescription] = [
     WundaSensorDescription(
@@ -116,8 +117,9 @@ SENSORS: list[WundaSensorDescription] = [
         key="sig",
         device_type="SENSOR",
         name="Signal Level",
-        icon=lambda x: icon_for_signal_level(_number_or_none(x)),
-        native_unit_of_measurement=PERCENTAGE,
+        value_fn=lambda state: _signal_pct_to_dbm(state.get("sig", None)),
+        icon=lambda x: icon_for_signal_level(_signal_dbm_to_pct(x)),
+        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         state_class=SensorStateClass.MEASUREMENT,
     ),
@@ -143,8 +145,9 @@ SENSORS: list[WundaSensorDescription] = [
         key="sig",
         device_type="TRV",
         name="Signal Level",
-        icon=lambda x: icon_for_signal_level(_number_or_none(x)),
-        native_unit_of_measurement=PERCENTAGE,
+        icon=lambda x: icon_for_signal_level(_signal_dbm_to_pct(x)),
+        value_fn=lambda state: _signal_pct_to_dbm(state.get("sig", None)),
+        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         state_class=SensorStateClass.MEASUREMENT,
     ),
@@ -211,6 +214,26 @@ def _trv_get_sensor_name(room, trv, desc: WundaSensorDescription):
     hw_version = float(trv["hw_version"])
     id_ranges = get_device_id_ranges(hw_version)
     return room["name"] + f" TRV.{device_id - id_ranges.MIN_TRV_ID} {desc.name}"
+
+
+def _signal_pct_to_dbm(pct):
+    """Convert signal percent to dBm"""
+    if pct is None or pct == "":
+        return None
+
+    # For RSSI signal is between -50dBm and -100dBm
+    # 100% = dBm >= -50 dBm
+    # 0% = dBm <= -100 dBm
+    pct = max(min(float(pct), 100), 0)
+    return (pct / 2) - 100
+
+
+def _signal_dbm_to_pct(dbm):
+    if dbm is None or dbm == "":
+        return None
+
+    dbm = max(min(float(dbm), -50), -100)
+    return (dbm + 100) * 2
 
 
 async def async_setup_entry(
@@ -313,9 +336,15 @@ class Sensor(CoordinatorEntity[WundasmartDataUpdateCoordinator], SensorEntity):
     def __update_state(self):
         device = self.coordinator.data.get(self._wunda_id, {})
         state = device.get("state", {})
-        value = state.get(self.entity_description.key)
-        if not value and self.entity_description.default is not None:
+
+        if self.entity_description.value_fn is not None:
+            value = self.entity_description.value_fn(state)
+        else:
+            value = state.get(self.entity_description.key)
+
+        if value is None and self.entity_description.default is not None:
             value = self.entity_description.default
+
         self._attr_native_value = value
 
     @callback
