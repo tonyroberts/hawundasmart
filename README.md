@@ -42,7 +42,15 @@ When set up correctly all rooms configured in your Hub Switch will appear as cli
 
 The easiest way of finding your local username and password for the Hub Switch is to use a network traffic capture app on your device that you used to set up and configure the Hub Switch.
 
-One example you can use is the iPhone app `HTTP Traffic Capture`. This installs a VPN on your phone, allowing you to capture traffic between your phone and the Hub Switch. Start capturing, then do something in the WundaSmart app, then look at the captured traffic and find the basic auth Authorization header. This can be decoded into `username:password` using any online base64 decoder such as https://decodebase64.com.
+One example you can use is the iPhone app `HTTP Traffic Capture`. This installs a VPN on your phone, allowing you to capture traffic between your phone and the Hub Switch.
+
+Start capturing traffic in the traffic capture app, then switch to the WundaSmart app and perform some action that will send a request to the Hub Switch such as changing the temperature in a room. Then switch back to the traffic capture app and look at the captured traffic for any HTTP requests from your phone to your Hub Switch.
+
+There can be a delay between performing an action in the WundaSmart app and it sending traffic to the Hub Switch, so wait a minute or two before stopping the traffic capture if you don't see any requests immediately.
+
+In the captured HTTP request, look at the headers and find the basic auth Authorization header.
+
+Once you have the basic auth Authorization token from the request headers, you will then need to decode it using any online base64 decoder such as https://decodebase64.com. The decoded string will be in the form `username:password`.
 
 ## Tested Hardware
 
