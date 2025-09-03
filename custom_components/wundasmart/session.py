@@ -34,7 +34,8 @@ class ResponseHandler(aiohttp.client_proto.ResponseHandler):
         self.__closed_transport = None
 
     def close(self):
-        self.__closed_transport = weakref.ref(self.transport)
+        if self.transport is not None:
+            self.__closed_transport = weakref.ref(self.transport)
         super().close()
 
     def connection_lost(self, exc):
