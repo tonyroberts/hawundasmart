@@ -90,6 +90,47 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
 
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None):
+        """Reconfigure step to allow to reconfigure a config entry."""
+        reconfigure_entry = self._get_reconfigure_entry()
+
+        data_schema = vol.Schema({
+            vol.Required(CONF_HOST, default=reconfigure_entry.data.get(CONF_HOST)): str,
+            vol.Required(CONF_USERNAME, default=reconfigure_entry.data.get(CONF_USERNAME)): str,
+            vol.Required(CONF_PASSWORD, default=reconfigure_entry.data.get(CONF_PASSWORD)): str
+        })
+
+        if user_input is None:
+            return self.async_show_form(
+                step_id="reconfigure",
+                data_schema=data_schema
+            )
+
+        errors = {}
+
+        try:
+            await validate_input(
+                self.hass,
+                user_input[CONF_HOST],
+                user_input[CONF_USERNAME],
+                user_input[CONF_PASSWORD]
+            )
+        except CannotConnect:
+            errors["base"] = "cannot_connect"
+        except InvalidAuth:
+            errors["base"] = "invalid_auth"
+        else:
+            return self.async_update_reload_and_abort(
+                reconfigure_entry,
+                data_updates=user_input
+            )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=data_schema,
+            errors=errors
+        )
+
 
 class OptionsFlow(config_entries.OptionsFlow):
 
