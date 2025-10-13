@@ -4,7 +4,7 @@ from typing import Any
 
 from homeassistant import config_entries, core, exceptions
 from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD, CONF_SCAN_INTERVAL
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.core import callback
 
 from .const import *
@@ -137,7 +137,7 @@ class OptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
@@ -156,6 +156,11 @@ class OptionsFlow(config_entries.OptionsFlow):
                 CONF_READ_TIMEOUT,
                 default=self.config_entry.options.get(
                     CONF_READ_TIMEOUT, DEFAULT_READ_TIMEOUT
+                )): int,
+            vol.Optional(
+                CONF_PING_INTERVAL,
+                default=self.config_entry.options.get(
+                    CONF_PING_INTERVAL, DEFAULT_PING_INTERVAL
                 )): int
         }
 
