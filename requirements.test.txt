@@ -4,3 +4,4 @@ pytest-homeassistant-custom-component
 pywundasmart
 xmltodict
 tzdata
+icmplib
