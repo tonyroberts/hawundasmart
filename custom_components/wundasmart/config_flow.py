@@ -8,7 +8,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.core import callback
 
 from .const import *
-from .session import get_session
+from .session import get_transient_session
 from .pywundasmart import get_devices
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
@@ -32,7 +32,7 @@ class Hub:
 
     async def authenticate(self):
         """Wundasmart Hub class authenticate."""
-        async with get_session(self._wunda_ip) as session:
+        async with get_transient_session(self._wunda_ip) as session:
             return await get_devices(
                 session,
                 self._wunda_ip,

@@ -1,6 +1,6 @@
 """Constants for the wundasmart integration."""
 from dataclasses import dataclass
-from homeassistant.components.climate import (
+from homeassistant.components.climate.const import (
     PRESET_ECO,
     PRESET_COMFORT
 )
