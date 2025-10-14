@@ -80,7 +80,8 @@ def parse_syncvalues(data: str):
     for device_state in data.splitlines():
         raw_values = device_state.split(";")
         device_values = {
-            k: urllib.parse.unquote(v) for k, v in (
+            k: (urllib.parse.unquote(v) if v else None)
+            for k, v in (
                 x.split(":") for x in raw_values if ":" in x
             )
         }
@@ -90,7 +91,7 @@ def parse_syncvalues(data: str):
         if device_sn is None:
             raise RuntimeError("No device_sn found")
 
-        hw_version = hw_version or float(device_values.get("device_hard_version", 0.0))
+        hw_version = hw_version or float(device_values.get("device_hard_version") or 0.0)
         if not hw_version:
             raise RuntimeError("No device_hard_version found")
 
