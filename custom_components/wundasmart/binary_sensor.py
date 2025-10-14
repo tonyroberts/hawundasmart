@@ -88,14 +88,6 @@ class WundaHeartbeatSensor(BinarySensorEntity):
             self._attributes = {}
             return
 
-        _LOGGER.debug(
-            "async_ping %s: reachable=%s sent=%i received=%s",
-            self._attr_name,
-            data.is_alive,
-            data.packets_sent,
-            data.packets_received,
-        )
-
         self._state = data.is_alive
         if not self._state:
             self._attributes = {}
