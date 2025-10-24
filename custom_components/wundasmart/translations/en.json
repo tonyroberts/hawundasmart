@@ -26,7 +26,8 @@
             "data": {
               "scan_interval": "Poll Interval",
               "connect_timeout": "Connect Timeout",
-              "read_timeout": "Read Timeout"
+              "read_timeout": "Read Timeout",
+              "ping_interval": "Heartbeat Interval"
             },
             "title": "Wundasmart options"
           }

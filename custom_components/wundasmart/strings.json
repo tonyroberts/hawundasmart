@@ -26,7 +26,8 @@
         "data": {
           "scan_interval": "[%key:common::config_flow::data::scan_interval%]",
           "connect_timeout": "Connect Timeout",
-          "read_timeout": "Read Timeout"
+          "read_timeout": "Read Timeout",
+          "ping_interval": "Heartbeat Interval"
         },
         "title": "Wundasmart options"
       }

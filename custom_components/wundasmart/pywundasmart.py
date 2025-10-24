@@ -48,7 +48,7 @@ def get_sensor_id_from_room(device) -> int:
     return device_id - id_ranges.MIN_ROOM_ID + id_ranges.MIN_SENSOR_ID
 
 
-def get_room_id_from_device(device) -> int:
+def get_room_id_from_device(device) -> int | None:
     """Infer the room id from a sensor device"""
     device_type = device["device_type"]
     device_id = int(device["device_id"])
@@ -80,7 +80,8 @@ def parse_syncvalues(data: str):
     for device_state in data.splitlines():
         raw_values = device_state.split(";")
         device_values = {
-            k: urllib.parse.unquote(v) for k, v in (
+            k: (urllib.parse.unquote(v) if v else None)
+            for k, v in (
                 x.split(":") for x in raw_values if ":" in x
             )
         }
@@ -90,7 +91,7 @@ def parse_syncvalues(data: str):
         if device_sn is None:
             raise RuntimeError("No device_sn found")
 
-        hw_version = hw_version or float(device_values.get("device_hard_version", 0.0))
+        hw_version = hw_version or float(device_values.get("device_hard_version") or 0.0)
         if not hw_version:
             raise RuntimeError("No device_hard_version found")
 
@@ -128,7 +129,11 @@ def parse_syncvalues(data: str):
     return devices
 
 
-async def get_devices(httpsession: aiohttp.ClientSession, wunda_ip, wunda_user, wunda_pass, timeout=10):
+async def get_devices(httpsession: aiohttp.ClientSession,
+                      wunda_ip: str,
+                      wunda_user: str,
+                      wunda_pass: str,
+                      timeout: aiohttp.ClientTimeout | None = None):
     """ Returns a list of active devices connected to the Wundasmart controller """
     # Query the syncvalues API, which returns a list of all sensor values for all devices. Data is formatted as semicolon-separated k;v pairs
     wunda_url = f"http://{wunda_ip}/syncvalues.cgi"
@@ -154,19 +159,19 @@ async def send_command(session: aiohttp.ClientSession,
                        wunda_user: str, 
                        wunda_pass: str,
                        params: dict,
-                       timeout: int = 3,
+                       timeout: aiohttp.ClientTimeout,
                        retries: int = 5,
                        retry_delay: float = 0.5):
     """Send a command to the wunda smart hub controller"""
     wunda_url = f"http://{wunda_ip}/cmd.cgi"
-    params = "&".join((k if v is None else f"{k}={v}"for k, v in params.items()))
+    params_str = "&".join((k if v is None else f"{k}={v}"for k, v in params.items()))
 
     attempts = 0
     while attempts < retries:
         attempts += 1
         async with session.get(wunda_url,
                                auth=aiohttp.BasicAuth(wunda_user, wunda_pass), 
-                               params=params,
+                               params=params_str,
                                timeout=timeout) as resp:
             status = resp.status
             if status == 200:
@@ -187,7 +192,7 @@ async def set_register(session: aiohttp.ClientSession,
                        device_id: str,
                        register_id: str,
                        value: str,
-                       timeout: int = 3,
+                       timeout: aiohttp.ClientTimeout,
                        retries: int = 5,
                        retry_delay: float = 0.5):
     """Send a setregister command to the wunda smart hub controller"""
