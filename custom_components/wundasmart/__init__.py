@@ -160,6 +160,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def device_info(self) -> DeviceInfo | None:
+        """Return device info for the hub device."""
         if self._device_sn is None:
             return None
 
@@ -167,6 +168,22 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
             identifiers={(DOMAIN, self._device_sn)},
             manufacturer="Wunda",
             name=self._device_name or "Smart HubSwitch",
+            model="WundaSmart Hub",
             hw_version=self._hw_version,
             sw_version=self._sw_version
+        )
+
+    def get_room_device_info(self, room_id: str, room_device: dict) -> DeviceInfo | None:
+        """Return device info for a room/zone."""
+        if self._device_sn is None:
+            return None
+
+        room_name = room_device.get("name", f"Room {room_id}")
+        
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"{self._device_sn}_room_{room_id}")},
+            manufacturer="Wunda",
+            name=room_name,
+            model="WundaSmart Room",
+            via_device=(DOMAIN, self._device_sn),
         )

@@ -213,7 +213,8 @@ def _trv_get_sensor_name(room, trv, desc: WundaSensorDescription):
     device_id = int(trv["device_id"])
     hw_version = float(trv["hw_version"])
     id_ranges = get_device_id_ranges(hw_version)
-    return room["name"] + f" TRV.{device_id - id_ranges.MIN_TRV_ID} {desc.name}"
+    # Simple name since it's under the room device
+    return f"TRV.{device_id - id_ranges.MIN_TRV_ID} {desc.name}"
 
 
 def _signal_pct_to_dbm(pct):
@@ -259,27 +260,30 @@ async def async_setup_entry(
     sensors = itertools.chain(
         (
             Sensor(wunda_id,
-               room["name"] + " " + desc.name,
+               desc.name,  # Simple name since it's under the room device
                coordinator,
-               desc)
+               desc,
+               room_id=wunda_id)
                 for wunda_id, device, room in devices_by_type["ROOM"]
                 for desc in descriptions_by_type["ROOM"]
         ),
 
         (
             Sensor(wunda_id,
-               room["name"] + " " + desc.name,
+               desc.name,  # Simple name since it's under the room device
                coordinator,
-               desc)
+               desc,
+               room_id=get_room_id_from_device(device))
                 for wunda_id, device, room in devices_by_type["SENSOR"]
                 for desc in descriptions_by_type["SENSOR"]
         ),
 
         (
             Sensor(wunda_id,
-               _trv_get_sensor_name(room, device, desc),
+               _trv_get_sensor_name(room, device, desc),  # Keep TRV numbering for multiple TRVs
                coordinator,
-               desc)
+               desc,
+               room_id=get_room_id_from_device(device))
                 for wunda_id, device, room in devices_by_type["TRV"]
                 for desc in descriptions_by_type["TRV"]
         )
@@ -299,6 +303,7 @@ class Sensor(CoordinatorEntity[WundasmartDataUpdateCoordinator], SensorEntity):
         name: str,
         coordinator: WundasmartDataUpdateCoordinator,
         description: WundaSensorDescription,
+        room_id: str = None,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
@@ -308,7 +313,13 @@ class Sensor(CoordinatorEntity[WundasmartDataUpdateCoordinator], SensorEntity):
 
         if (device_sn := coordinator.device_sn) is not None:
             self._attr_unique_id = f"{device_sn}.{wunda_id}.{description.key}"
-        self._attr_device_info = coordinator.device_info
+        
+        # Determine device info based on whether this sensor belongs to a room
+        if room_id is not None:
+            room_device = coordinator.data.get(room_id, {})
+            self._attr_device_info = coordinator.get_room_device_info(room_id, room_device)
+        else:
+            self._attr_device_info = coordinator.device_info
 
         self.entity_description = self.__update_description_defaults(description)
 
