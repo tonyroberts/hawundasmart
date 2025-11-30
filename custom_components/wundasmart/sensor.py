@@ -208,13 +208,17 @@ def _trv_get_room(coordinator: WundasmartDataUpdateCoordinator, device):
         return coordinator.data.get(room_id)
 
 
-def _trv_get_sensor_name(room, trv, desc: WundaSensorDescription):
+def _trv_get_sensor_name(room, trv, desc: WundaSensorDescription, separate_room_devices: bool = False):
     """Return a human readable name for a TRV device"""
     device_id = int(trv["device_id"])
     hw_version = float(trv["hw_version"])
     id_ranges = get_device_id_ranges(hw_version)
-    # Simple name since it's under the room device
-    return f"TRV.{device_id - id_ranges.MIN_TRV_ID} {desc.name}"
+    # Simple name for separate devices, full name for legacy mode
+    trv_suffix = f"TRV.{device_id - id_ranges.MIN_TRV_ID} {desc.name}"
+    if separate_room_devices:
+        return trv_suffix
+    else:
+        return room["name"] + " " + trv_suffix
 
 
 def _signal_pct_to_dbm(pct):
@@ -260,7 +264,7 @@ async def async_setup_entry(
     sensors = itertools.chain(
         (
             Sensor(wunda_id,
-               desc.name,  # Simple name since it's under the room device
+               desc.name if coordinator._separate_room_devices else room["name"] + " " + desc.name,
                coordinator,
                desc,
                room_id=wunda_id)
@@ -270,7 +274,7 @@ async def async_setup_entry(
 
         (
             Sensor(wunda_id,
-               desc.name,  # Simple name since it's under the room device
+               desc.name if coordinator._separate_room_devices else room["name"] + " " + desc.name,
                coordinator,
                desc,
                room_id=get_room_id_from_device(device))
@@ -280,7 +284,7 @@ async def async_setup_entry(
 
         (
             Sensor(wunda_id,
-               _trv_get_sensor_name(room, device, desc),  # Keep TRV numbering for multiple TRVs
+               _trv_get_sensor_name(room, device, desc, coordinator._separate_room_devices),
                coordinator,
                desc,
                room_id=get_room_id_from_device(device))

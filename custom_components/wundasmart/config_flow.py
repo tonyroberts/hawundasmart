@@ -161,7 +161,12 @@ class OptionsFlow(config_entries.OptionsFlow):
                 CONF_PING_INTERVAL,
                 default=self.config_entry.options.get(
                     CONF_PING_INTERVAL, DEFAULT_PING_INTERVAL
-                )): int
+                )): int,
+            vol.Optional(
+                CONF_SEPARATE_ROOM_DEVICES,
+                default=self.config_entry.options.get(
+                    CONF_SEPARATE_ROOM_DEVICES, DEFAULT_SEPARATE_ROOM_DEVICES
+                )): bool
         }
 
         return self.async_show_form(step_id="init", data_schema=vol.Schema(options))

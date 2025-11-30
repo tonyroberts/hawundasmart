@@ -124,10 +124,14 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._wunda_user = wunda_user
         self._wunda_pass = wunda_pass
         self._wunda_id = wunda_id
-        self._attr_name = "Climate"  # Simple name since it's under the room device
+        self._attr_device_info = coordinator.get_room_device_info(wunda_id, device)
+        # Use simple name for separate devices, full name for legacy mode
+        if coordinator._separate_room_devices:
+            self._attr_name = "Climate"
+        else:
+            self._attr_name = device["name"]
         self._attr_unique_id = device["id"]
         self._attr_type = device["device_type"]
-        self._attr_device_info = coordinator.get_room_device_info(wunda_id, device)
         # This flag needs to be set until 2025.1 to prevent warnings about
         # implicitly supporting the turn_off/turn_on methods.
         # https://developers.home-assistant.io/blog/2024/01/24/climate-climateentityfeatures-expanded/
