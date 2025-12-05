@@ -124,10 +124,14 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._wunda_user = wunda_user
         self._wunda_pass = wunda_pass
         self._wunda_id = wunda_id
-        self._attr_name = device["name"]
+        self._attr_device_info = coordinator.get_room_device_info(wunda_id, device)
+        # Use simple name for separate devices, full name for legacy mode
+        if coordinator._separate_room_devices:
+            self._attr_name = "Climate"
+        else:
+            self._attr_name = device["name"]
         self._attr_unique_id = device["id"]
         self._attr_type = device["device_type"]
-        self._attr_device_info = coordinator.device_info
         # This flag needs to be set until 2025.1 to prevent warnings about
         # implicitly supporting the turn_off/turn_on methods.
         # https://developers.home-assistant.io/blog/2024/01/24/climate-climateentityfeatures-expanded/
@@ -142,7 +146,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         self._attr_target_temperature = None
         self._attr_current_humidity = None
         self._attr_hvac_mode = HVACMode.AUTO
-        self._attr_preset_mode =  PRESET_NONE
+        self._attr_preset_mode = PRESET_NONE
         self._timeout = timeout
 
         # Update with initial state
@@ -229,7 +233,7 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
                 except (ValueError, TypeError):
                     _LOGGER.warning(f"Unexpected {state_key} value '{state[state_key]}' for {self._attr_name}")
         else:
-            self._attr_preset_mode =  PRESET_NONE
+            self._attr_preset_mode = PRESET_NONE
 
     def __set_hvac_state(self):
         """Set the hvac action and hvac mode from the coordinator data."""
