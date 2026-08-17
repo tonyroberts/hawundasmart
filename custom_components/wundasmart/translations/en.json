@@ -27,7 +27,11 @@
               "scan_interval": "Poll Interval",
               "connect_timeout": "Connect Timeout",
               "read_timeout": "Read Timeout",
-              "ping_interval": "Heartbeat Interval"
+              "ping_interval": "Heartbeat Interval",
+              "separate_room_devices": "Separate Room Devices"
+            },
+            "data_description": {
+              "separate_room_devices": "When enabled, separate devices are created for each room. By default, all entities are grouped under a single device."
             },
             "title": "Wundasmart options"
           }

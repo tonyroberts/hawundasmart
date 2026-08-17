@@ -10,11 +10,13 @@ DOMAIN = "wundasmart"
 CONF_CONNECT_TIMEOUT = "connect_timeout"
 CONF_READ_TIMEOUT = "read_timeout"
 CONF_PING_INTERVAL = "ping_interval"
+CONF_SEPARATE_ROOM_DEVICES = "separate_room_devices"
 
 DEFAULT_SCAN_INTERVAL = 300
 DEFAULT_CONNECT_TIMEOUT = 5
 DEFAULT_READ_TIMEOUT = 5
 DEFAULT_PING_INTERVAL = 180
+DEFAULT_SEPARATE_ROOM_DEVICES = False
 
 @dataclass
 class DeviceIdRanges:

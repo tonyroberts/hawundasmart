@@ -13,6 +13,7 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, CONF_SC
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers import device_registry
 
 from .const import *
 from .session import get_persistent_session
@@ -39,8 +40,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     read_timeout = entry.options.get(CONF_READ_TIMEOUT, DEFAULT_READ_TIMEOUT)
     timeout = aiohttp.ClientTimeout(sock_connect=connect_timeout, sock_read=read_timeout)
 
+    separate_room_devices = entry.options.get(CONF_SEPARATE_ROOM_DEVICES, DEFAULT_SEPARATE_ROOM_DEVICES)
+
     coordinator = WundasmartDataUpdateCoordinator(
-        hass, wunda_ip, wunda_user, wunda_pass, update_interval, timeout
+        hass, wunda_ip, wunda_user, wunda_pass, update_interval, timeout, separate_room_devices
     )
     await coordinator.async_config_entry_first_refresh()
 
@@ -62,15 +65,37 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
-
-
 async def update_listener(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
     """Update listener."""
+    # Check if we're switching from separate devices to legacy mode
+    separate_room_devices = config_entry.options.get(CONF_SEPARATE_ROOM_DEVICES, DEFAULT_SEPARATE_ROOM_DEVICES)
+    
+    if not separate_room_devices:
+        # Clean up room devices when switching to legacy mode
+        await _cleanup_room_devices(hass, config_entry)
+    
     await hass.config_entries.async_reload(config_entry.entry_id)
+
+
+async def _cleanup_room_devices(hass: HomeAssistant, config_entry: ConfigEntry) -> None:
+    """Remove room devices when switching to legacy mode."""
+    _device_registry = device_registry.async_get(hass)
+    
+    # Find all room devices for this integration
+    devices = device_registry.async_entries_for_config_entry(_device_registry, config_entry.entry_id)
+    
+    removed_count = 0
+    for device in devices:
+        # Check if this is a room device (not the main hub)
+        for identifier in device.identifiers:
+            if identifier[0] == DOMAIN and "_room_" in str(identifier[1]):
+                _LOGGER.debug(f"Removing orphaned room device: {device.name} ({identifier[1]})")
+                _device_registry.async_remove_device(device.id)
+                removed_count += 1
+                break
+    
+    if removed_count > 0:
+        _LOGGER.debug(f"Removed {removed_count} orphaned room device(s) when switching to single device mode")
 
 
 class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
@@ -82,7 +107,8 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
                  wunda_user: str,
                  wunda_pass: str,
                  update_interval: int,
-                 timeout: aiohttp.ClientTimeout):
+                 timeout: aiohttp.ClientTimeout,
+                 separate_room_devices: bool):
         """Initialize."""
         self._hass = hass
         self._wunda_ip = wunda_ip
@@ -95,6 +121,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
         self._hw_version = None
         self._timeout = timeout
         self._keepalive_timeout = update_interval * 2
+        self._separate_room_devices = separate_room_devices
 
         super().__init__(hass,
                          _LOGGER,
@@ -160,6 +187,7 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def device_info(self) -> DeviceInfo | None:
+        """Return device info for the hub device."""
         if self._device_sn is None:
             return None
 
@@ -167,6 +195,26 @@ class WundasmartDataUpdateCoordinator(DataUpdateCoordinator):
             identifiers={(DOMAIN, self._device_sn)},
             manufacturer="Wunda",
             name=self._device_name or "Smart HubSwitch",
+            model="WundaSmart Hub",
             hw_version=self._hw_version,
             sw_version=self._sw_version
+        )
+
+    def get_room_device_info(self, room_id: str, room_device: dict) -> DeviceInfo | None:
+        """Return device info for a room/zone."""
+        if self._device_sn is None:
+            return None
+
+        # If separate_room_devices is disabled, return hub device info (legacy mode)
+        if not self._separate_room_devices:
+            return self.device_info
+
+        room_name = room_device.get("name", f"Room {room_id}")
+        
+        return DeviceInfo(
+            identifiers={(DOMAIN, f"{self._device_sn}_room_{room_id}")},
+            manufacturer="Wunda",
+            name=room_name,
+            model="WundaSmart Room",
+            via_device=(DOMAIN, self._device_sn),
         )
