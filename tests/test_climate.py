@@ -4,7 +4,8 @@ from custom_components.wundasmart.const import DOMAIN
 from unittest.mock import patch
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.core import HomeAssistant
-from homeassistant.components.climate import HVACAction
+from homeassistant.components.climate import HVACAction, HVACMode
+import pytest
 from .utils import deserialize_get_devices_fixture
 
 
@@ -45,6 +46,46 @@ async def test_climate(hass: HomeAssistant, config):
         assert state.attributes["hvac_action"] == HVACAction.PREHEATING
 
 
+@pytest.mark.parametrize("temp_pre, expected_mode", [
+    ("0", HVACMode.AUTO),
+    ("17", HVACMode.HEAT),
+    ("20", HVACMode.OFF),
+    ("128", HVACMode.AUTO),
+])
+async def test_hvac_action_flags(hass: HomeAssistant, config, temp_pre, expected_mode):
+    """Room demand controls action through heating and idle transitions."""
+    entry = MockConfigEntry(domain=DOMAIN, data=config)
+    entry.add_to_hass(hass)
+    data = deserialize_get_devices_fixture(load_fixture("test_set_temperature.json"))
+    room = next(device for device in data["devices"].values()
+                if device.get("device_type") == "ROOM")
+    room["state"]["temp_pre"] = temp_pre
+
+    with patch("custom_components.wundasmart.get_devices", return_value=data):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        coordinator = hass.data[DOMAIN][entry.entry_id]
+
+        # Repeat the cycle to catch stale action state. Bit 0x04 must not matter.
+        for heat, active in (("6", True), ("7", True), ("5", False), ("4", False),
+                             ("2", True), ("3", True), ("1", False), ("0", False),
+                             ("6", True), ("4", False)):
+            room["state"]["heat"] = heat
+            await coordinator.async_refresh()
+            await hass.async_block_till_done()
+            state = hass.states.get("climate.test_room")
+            assert state
+            assert state.state == expected_mode
+            if expected_mode == HVACMode.OFF:
+                expected_action = HVACAction.OFF
+            elif active:
+                expected_action = (HVACAction.PREHEATING if temp_pre == "128"
+                                   else HVACAction.HEATING)
+            else:
+                expected_action = HVACAction.IDLE
+            assert state.attributes["hvac_action"] == expected_action
+
+
 async def test_set_temperature(hass: HomeAssistant, config):
     entry = MockConfigEntry(domain=DOMAIN, data=config)
     entry.add_to_hass(hass)
@@ -74,7 +115,7 @@ async def test_set_temperature(hass: HomeAssistant, config):
         assert state.attributes["current_temperature"] == 16.0
         assert state.attributes["temperature"] == 20
         assert state.state == "heat"
-        assert state.attributes["hvac_action"] == HVACAction.IDLE
+        assert state.attributes["hvac_action"] == HVACAction.HEATING
 
 
 async def test_trvs_only(hass: HomeAssistant, config):
