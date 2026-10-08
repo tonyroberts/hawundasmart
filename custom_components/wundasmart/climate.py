@@ -272,14 +272,15 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         )
 
         adaptive_start = temp_pre & 0x80
-        heating = heat & 0x1
         demand = heat & 0x2
 
+        # Rooms can be actively heating with heat=6 (demand without bit 0x01).
+        # Use room demand for the action rather than requiring both heat flags.
         self._attr_hvac_action = (
-            HVACAction.PREHEATING if adaptive_start and heating
-            else HVACAction.HEATING if heating and demand
-            else HVACAction.IDLE if heating or demand
-            else HVACAction.OFF
+            HVACAction.OFF if self._attr_hvac_mode == HVACMode.OFF
+            else HVACAction.PREHEATING if adaptive_start and demand
+            else HVACAction.HEATING if demand
+            else HVACAction.IDLE
         )
 
     def __update_state(self):
