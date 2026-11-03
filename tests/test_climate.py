@@ -4,7 +4,8 @@ from custom_components.wundasmart.const import DOMAIN
 from unittest.mock import patch
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.core import HomeAssistant
-from homeassistant.components.climate import HVACAction
+from homeassistant.components.climate import HVACAction, HVACMode
+import pytest
 from .utils import deserialize_get_devices_fixture
 
 
@@ -43,6 +44,53 @@ async def test_climate(hass: HomeAssistant, config):
         assert state.attributes["temperature"] == 0
         assert state.state == "auto"
         assert state.attributes["hvac_action"] == HVACAction.PREHEATING
+
+
+@pytest.mark.parametrize("temp_pre, expected_mode", [
+    ("0", HVACMode.AUTO),
+    ("17", HVACMode.HEAT),
+    ("20", HVACMode.OFF),
+    ("128", HVACMode.AUTO),
+])
+async def test_hvac_action_flags(hass: HomeAssistant, config, temp_pre, expected_mode):
+    """Preserve active actions and distinguish idle from manually off."""
+    entry = MockConfigEntry(domain=DOMAIN, data=config)
+    entry.add_to_hass(hass)
+    data = deserialize_get_devices_fixture(load_fixture("test_set_temperature.json"))
+    room = next(device for device in data["devices"].values()
+                if device.get("device_type") == "ROOM")
+    room["state"]["temp_pre"] = temp_pre
+
+    with patch("custom_components.wundasmart.get_devices", return_value=data):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+        coordinator = hass.data[DOMAIN][entry.entry_id]
+
+        # Repeat the cycle to catch stale action state. Bit 0x04 must not matter.
+        for heat, normal_action, adaptive_action in (
+            ("6", HVACAction.IDLE, HVACAction.IDLE),
+            ("7", HVACAction.HEATING, HVACAction.PREHEATING),
+            ("5", HVACAction.IDLE, HVACAction.PREHEATING),
+            ("4", HVACAction.IDLE, HVACAction.IDLE),
+            ("2", HVACAction.IDLE, HVACAction.IDLE),
+            ("3", HVACAction.HEATING, HVACAction.PREHEATING),
+            ("1", HVACAction.IDLE, HVACAction.PREHEATING),
+            ("0", HVACAction.IDLE, HVACAction.IDLE),
+            ("6", HVACAction.IDLE, HVACAction.IDLE),
+            ("4", HVACAction.IDLE, HVACAction.IDLE),
+        ):
+            room["state"]["heat"] = heat
+            await coordinator.async_refresh()
+            await hass.async_block_till_done()
+            state = hass.states.get("climate.test_room")
+            assert state
+            assert state.state == expected_mode
+            if expected_mode == HVACMode.OFF:
+                expected_action = HVACAction.OFF
+            else:
+                expected_action = (adaptive_action if temp_pre == "128"
+                                   else normal_action)
+            assert state.attributes["hvac_action"] == expected_action
 
 
 async def test_set_temperature(hass: HomeAssistant, config):

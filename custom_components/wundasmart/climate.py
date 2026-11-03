@@ -275,11 +275,12 @@ class Device(CoordinatorEntity[WundasmartDataUpdateCoordinator], ClimateEntity):
         heating = heat & 0x1
         demand = heat & 0x2
 
+        # No heat flags means idle while enabled, not switched off.
         self._attr_hvac_action = (
-            HVACAction.PREHEATING if adaptive_start and heating
+            HVACAction.OFF if self._attr_hvac_mode == HVACMode.OFF
+            else HVACAction.PREHEATING if adaptive_start and heating
             else HVACAction.HEATING if heating and demand
-            else HVACAction.IDLE if heating or demand
-            else HVACAction.OFF
+            else HVACAction.IDLE
         )
 
     def __update_state(self):
